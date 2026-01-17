@@ -12,6 +12,7 @@
             "distribution": "internal"
         },
         "production": {
+            "install": "npm install",
             "ios": {
                 "simulator": false
             }
