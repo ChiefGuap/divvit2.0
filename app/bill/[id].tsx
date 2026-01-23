@@ -253,7 +253,14 @@ export default function BillEditorScreen() {
                 // First check top-level items, then fall back to details.items for backward compatibility
                 const itemsData = bill.items || bill.details?.items || [];
                 if (itemsData.length > 0) {
-                    setItems(itemsData);
+                    // Ensure all items have unique IDs (fix for undefined IDs from DB)
+                    const itemsWithIds = itemsData.map((item: any) => ({
+                        ...item,
+                        id: item.id || Crypto.randomUUID(),
+                        name: item.name || '',
+                        price: Number(item.price) || 0
+                    }));
+                    setItems(itemsWithIds);
                 }
 
                 // Load assignments from details (still stored there)
@@ -434,6 +441,12 @@ export default function BillEditorScreen() {
     // -- Assignment Handlers --
 
     const handleAssignItem = (itemId: string) => {
+        // Guard: Don't assign if no user is selected
+        if (!selectedUserId) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            return;
+        }
+
         setAssignments(prev => {
             const currentAssignees = prev[itemId] || [];
             let newAssignees: string[];

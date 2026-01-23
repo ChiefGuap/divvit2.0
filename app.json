@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.theraq17.divvit",
-      "buildNumber": "2",
+      "buildNumber": "7",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -45,6 +45,12 @@
       "eas": {
         "projectId": "e29d46bc-e0b1-4c04-ad7e-a86c2936337f"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e29d46bc-e0b1-4c04-ad7e-a86c2936337f"
     }
   }
 }

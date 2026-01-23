@@ -2,7 +2,7 @@
  * Client-side Gemini SDK utility for receipt scanning.
  * Replaces the Python backend dependency.
  */
-import { readAsStringAsync } from 'expo-file-system';
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Types for the receipt data
@@ -50,7 +50,7 @@ export async function scanReceipt(imageUri: string): Promise<ReceiptData> {
         const mimeType = extension === 'png' ? 'image/png' : 'image/jpeg';
 
         // Initialize the model
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         // Strict prompt for JSON output
         const prompt = `Analyze this receipt image to extract data for a bill-splitting app.

@@ -168,11 +168,11 @@ function DeepLinkHandler() {
         );
       }
 
-      // Navigate directly to bill editor (not party screen)
-      console.log('DeepLink: Navigating to bill editor');
+      // Navigate to party screen (lobby) so guest can follow along with host
+      console.log('DeepLink: Navigating to party lobby');
       router.push({
-        pathname: '/bill/[id]',
-        params: { id: billId, fromParty: 'true' }
+        pathname: '/bill/party',
+        params: { id: billId }
       });
 
     } catch (err) {

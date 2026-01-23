@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import * as Haptics from 'expo-haptics';
 import { MoveRight } from 'lucide-react-native';
 import { getAuthCallbackUrl } from '../../utils/url';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -73,6 +74,50 @@ export default function Login() {
             }
         } catch (e: any) {
             Alert.alert('Error', e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAppleLogin = async () => {
+        if (loading) return;
+        setLoading(true);
+        console.log('Apple Login Pressed');
+        try {
+            await Haptics.selectionAsync();
+            const credential = await AppleAuthentication.signInAsync({
+                requestedScopes: [
+                    AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                    AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                ],
+            });
+
+            if (credential.identityToken) {
+                const { error } = await supabase.auth.signInWithIdToken({
+                    provider: 'apple',
+                    token: credential.identityToken,
+                });
+
+                if (error) {
+                    console.error('Apple Auth Error:', error);
+                    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                    Alert.alert('Apple Sign In Failed', error.message);
+                } else {
+                    console.log('Apple Login Success');
+                    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    // Router redirection is handled by AuthContext
+                }
+            } else {
+                throw new Error('No identity token received');
+            }
+        } catch (e: any) {
+            if (e.code === 'ERR_REQUEST_CANCELED') {
+                // User cancelled the sign-in flow - ignore
+                console.log('Apple sign-in cancelled by user');
+            } else {
+                console.error('Apple Login Exception:', e);
+                Alert.alert('Error', e.message || 'An unexpected error occurred');
+            }
         } finally {
             setLoading(false);
         }
@@ -202,19 +247,18 @@ export default function Login() {
                     {/* Google Icon Placeholder */}
                     <Text className="font-bold text-divvit-text">G</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    className="flex-1 h-12 bg-black rounded-xl items-center justify-center"
-                    style={{
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 4,
-                        elevation: 2,
-                    }}
-                >
-                    {/* Apple Icon Placeholder */}
-                    <Text className="font-bold text-white"></Text>
-                </TouchableOpacity>
+                {Platform.OS === 'ios' && (
+                    <AppleAuthentication.AppleAuthenticationButton
+                        buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                        cornerRadius={12}
+                        style={{
+                            flex: 1,
+                            height: 48,
+                        }}
+                        onPress={handleAppleLogin}
+                    />
+                )}
             </View>
 
             {/* Footer Navigation */}

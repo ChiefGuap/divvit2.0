@@ -92,25 +92,48 @@ export default function CheckoutScreen() {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedUserForPayment, setSelectedUserForPayment] = useState<User | null>(null);
     const [isClosingBill, setIsClosingBill] = useState(false);
+    const [billHostId, setBillHostId] = useState<string | null>(null);
     const [hostPaymentMethods, setHostPaymentMethods] = useState<HostPaymentMethods>({
         venmo_handle: null,
         cashapp_handle: null,
     });
 
-    // Get host ID (current user is always the host)
-    const hostId = user?.id;
+    // Use fetched host ID, fallback to current user for backwards compatibility
+    const hostId = billHostId || user?.id;
 
-    // Fetch host's payment methods on mount
+    // Fetch bill host and their payment methods on mount
     useEffect(() => {
         if (!user || !session) return;
 
-        const fetchHostPaymentMethods = async () => {
+        const fetchBillHostAndPaymentMethods = async () => {
             try {
                 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
                 const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+                // First fetch the bill to get the actual host_id
+                const billResponse = await fetch(
+                    `${supabaseUrl}/rest/v1/bills?id=eq.${billId}&select=host_id`,
+                    {
+                        headers: {
+                            'apikey': supabaseKey!,
+                            'Authorization': `Bearer ${session.access_token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                );
+
+                let actualHostId = user.id; // Fallback to current user
+                if (billResponse.ok) {
+                    const bills = await billResponse.json();
+                    if (bills && bills.length > 0 && bills[0].host_id) {
+                        actualHostId = bills[0].host_id;
+                        setBillHostId(actualHostId);
+                    }
+                }
+
+                // Now fetch the host's payment methods
                 const response = await fetch(
-                    `${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=venmo_handle,cashapp_handle`,
+                    `${supabaseUrl}/rest/v1/profiles?id=eq.${actualHostId}&select=venmo_handle,cashapp_handle`,
                     {
                         headers: {
                             'apikey': supabaseKey!,
@@ -134,8 +157,8 @@ export default function CheckoutScreen() {
             }
         };
 
-        fetchHostPaymentMethods();
-    }, [user, session]);
+        fetchBillHostAndPaymentMethods();
+    }, [user, session, billId]);
 
     // Check if all non-host users have paid (host is auto-settled)
     const nonHostUsers = users.filter(u => u.id !== hostId);

@@ -182,11 +182,23 @@ export default function PartyScreen() {
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        // Update bill status to 'started' (optional - for guest redirection)
+        // Update bill status to 'started' AND save items to DB so guests can see them
         try {
             const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
             const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+            // Parse items from billData if available
+            let itemsToSave = [];
+            if (billData) {
+                try {
+                    const parsedBillData = JSON.parse(billData);
+                    itemsToSave = parsedBillData.items || [];
+                } catch (e) {
+                    console.error('PartyScreen: Error parsing billData:', e);
+                }
+            }
+
+            // Save both status and items in one request
             await fetch(
                 `${supabaseUrl}/rest/v1/bills?id=eq.${billId}`,
                 {
@@ -197,11 +209,14 @@ export default function PartyScreen() {
                         'Content-Type': 'application/json',
                         'Prefer': 'return=minimal',
                     },
-                    body: JSON.stringify({ status: 'started' }),
+                    body: JSON.stringify({
+                        status: 'started',
+                        items: itemsToSave
+                    }),
                 }
             );
         } catch (err) {
-            console.error('PartyScreen: Error updating bill status:', err);
+            console.error('PartyScreen: Error updating bill:', err);
         }
 
         // Navigate to Bill Editor with participants
