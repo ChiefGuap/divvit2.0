@@ -15,7 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ArrowLeft, Check, ArrowRight, Plus, Trash2, Save, Shuffle, Users } from 'lucide-react-native';
+import { ArrowLeft, Check, ArrowRight, Plus, Trash2, Save, Shuffle, Users, X } from 'lucide-react-native';
 import * as Crypto from 'expo-crypto';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -169,7 +169,7 @@ export default function BillEditorScreen() {
     }, [usersParam]);
 
     // Parse incoming bill data - Universal Logic
-    const { initialItems, scannedTip } = useMemo((): { initialItems: BillItem[]; scannedTip: number } => {
+    const { initialItems, scannedTip, scannedTax } = useMemo((): { initialItems: BillItem[]; scannedTip: number; scannedTax: number } => {
         if (billData) {
             try {
                 const parsed = JSON.parse(billData);
@@ -185,7 +185,8 @@ export default function BillEditorScreen() {
                     }));
                     return {
                         initialItems: itemsWithIds,
-                        scannedTip: Number(parsed.scanned_tip) || Number(parsed.scannedTip) || 0
+                        scannedTip: Number(parsed.scanned_tip) || Number(parsed.scannedTip) || 0,
+                        scannedTax: Number(parsed.tax) || 0
                     };
                 }
             } catch (e) {
@@ -193,7 +194,7 @@ export default function BillEditorScreen() {
             }
         }
         // Manual mode: start with one empty row
-        return { initialItems: [createEmptyItem()], scannedTip: 0 };
+        return { initialItems: [createEmptyItem()], scannedTip: 0, scannedTax: 0 };
     }, [billData]);
 
     // State
@@ -208,6 +209,9 @@ export default function BillEditorScreen() {
     const [myParticipantId, setMyParticipantId] = useState<string | null>(null);
     // Track raw price text for each item to allow typing decimals like "12."
     const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
+    // Manual tax amount - user can edit this, initialized from scanned receipt
+    const [taxAmount, setTaxAmount] = useState<number>(scannedTax);
+    const [taxInput, setTaxInput] = useState<string>(scannedTax > 0 ? scannedTax.toFixed(2) : '');
 
     // Determine if current user is host
     const isHost = user?.id === hostId;
@@ -321,13 +325,14 @@ export default function BillEditorScreen() {
     // -- Derived Calculations --
 
     const subtotal = useMemo(() => items.reduce((sum: number, item: BillItem) => sum + (item.price || 0), 0), [items]);
-    const billTotal = subtotal;
+    const billTotal = subtotal + taxAmount;
 
-    // Calculate totals based on ASSIGNMENTS
+    // Calculate totals based on ASSIGNMENTS (includes proportional tax share)
     const userFinalTotals = useMemo(() => {
         const totals: Record<string, number> = {};
         activeUsers.forEach(u => totals[u.id] = 0);
 
+        // First pass: calculate each user's share of items (before tax)
         Object.entries(assignments).forEach(([itemId, userIds]) => {
             const item = items.find(i => i.id === itemId);
             if (item && userIds && userIds.length > 0) {
@@ -342,8 +347,18 @@ export default function BillEditorScreen() {
             }
         });
 
+        // Second pass: add proportional tax share to each user
+        // Tax is distributed based on each user's share of the subtotal
+        if (taxAmount > 0 && subtotal > 0) {
+            activeUsers.forEach(u => {
+                const userItemTotal = totals[u.id];
+                const userTaxShare = (userItemTotal / subtotal) * taxAmount;
+                totals[u.id] += userTaxShare;
+            });
+        }
+
         return totals;
-    }, [assignments, items, activeUsers]);
+    }, [assignments, items, activeUsers, taxAmount, subtotal]);
 
     // Remaining Amount Logic
     const { totalAssignedValue, remainingValue } = useMemo(() => {
@@ -507,6 +522,11 @@ export default function BillEditorScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     };
 
+    const handleClearAssignments = () => {
+        setAssignments({});
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    };
+
     // -- Navigation Handlers --
 
     const handleSaveAsDraft = async () => {
@@ -617,7 +637,8 @@ export default function BillEditorScreen() {
                 billId: id, // Pass billId through the flow
                 billData: JSON.stringify({
                     items: validItems,
-                    subtotal: subtotal
+                    subtotal: subtotal,
+                    tax: taxAmount
                 }),
                 users: JSON.stringify(activeUsers),
                 assignments: JSON.stringify(assignments),
@@ -698,7 +719,7 @@ export default function BillEditorScreen() {
 
                     {/* Bill Summary Card */}
                     <View
-                        className="flex-row justify-between items-end bg-white p-5 rounded-3xl border border-gray-100"
+                        className="bg-white p-5 rounded-3xl border border-gray-100"
                         style={{
                             shadowColor: '#000',
                             shadowOffset: { width: 0, height: 2 },
@@ -707,21 +728,55 @@ export default function BillEditorScreen() {
                             elevation: 2,
                         }}
                     >
-                        <View>
-                            <Text className="text-divvit-muted font-body text-xs mb-1 uppercase tracking-wider">Subtotal</Text>
-                            <Text className="text-3xl font-heading font-bold text-divvit-text">
-                                ${subtotal.toFixed(2)}
-                            </Text>
+                        {/* Top row: Subtotal & Remaining */}
+                        <View className="flex-row justify-between items-end mb-3">
+                            <View>
+                                <Text className="text-divvit-muted font-body text-xs mb-1 uppercase tracking-wider">Subtotal</Text>
+                                <Text className="text-3xl font-heading font-bold text-divvit-text">
+                                    ${subtotal.toFixed(2)}
+                                </Text>
+                            </View>
+
+                            <View className="items-end">
+                                <Text className="text-divvit-muted font-body text-xs mb-1 uppercase tracking-wider">Remaining</Text>
+                                <AnimatedNumber
+                                    value={remainingValue}
+                                    className={`text-2xl font-heading font-bold p-0 m-0`}
+                                    style={{ color: remainingTextColor }}
+                                />
+                            </View>
                         </View>
 
-                        <View className="items-end">
-                            <Text className="text-divvit-muted font-body text-xs mb-1 uppercase tracking-wider">Remaining</Text>
-                            <AnimatedNumber
-                                value={remainingValue}
-                                className={`text-2xl font-heading font-bold p-0 m-0`}
-                                style={{ color: remainingTextColor }}
-                            />
+                        {/* Tax Input Row - Manual Tax Editing */}
+                        <View className="flex-row items-center justify-between py-3 px-4 bg-gray-50 rounded-2xl border border-gray-100">
+                            <Text className="text-divvit-muted font-body text-sm">Add Tax</Text>
+                            <View className="flex-row items-center">
+                                <Text className="text-divvit-text font-heading text-lg mr-1">$</Text>
+                                <TextInput
+                                    value={taxInput || (taxAmount > 0 ? taxAmount.toFixed(2) : '')}
+                                    onChangeText={(text) => {
+                                        const cleaned = text.replace(/[^0-9.]/g, '');
+                                        setTaxInput(cleaned);
+                                        setTaxAmount(parseFloat(cleaned) || 0);
+                                    }}
+                                    onBlur={() => setTaxInput('')}
+                                    placeholder="0.00"
+                                    placeholderTextColor="#9CA3AF"
+                                    keyboardType="decimal-pad"
+                                    className="font-heading text-lg text-divvit-text min-w-[60px] text-right"
+                                />
+                            </View>
                         </View>
+
+                        {/* Total Row - Shows subtotal + tax */}
+                        {taxAmount > 0 && (
+                            <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                                <Text className="text-divvit-text font-heading font-bold text-base">Total</Text>
+                                <Text className="text-divvit-secondary font-heading font-bold text-xl">
+                                    ${billTotal.toFixed(2)}
+                                </Text>
+                            </View>
+                        )}
                     </View>
 
                     {/* Multi-Colored Progress Bar */}
@@ -872,11 +927,11 @@ export default function BillEditorScreen() {
                     </TouchableOpacity>
 
                     {/* Lazy Actions */}
-                    <View className="flex-row justify-center mt-4 mb-6">
+                    <View className="flex-row justify-center mt-4 mb-6 flex-wrap gap-2">
                         <TouchableOpacity
                             onPress={handleSplitEvenly}
                             activeOpacity={0.7}
-                            className="flex-row items-center bg-gray-100 px-4 py-3 rounded-full mr-3"
+                            className="flex-row items-center bg-gray-100 px-4 py-3 rounded-full"
                         >
                             <Users size={16} color="#6B7280" />
                             <Text className="ml-2 text-divvit-muted font-medium text-sm">Split Evenly</Text>
@@ -888,6 +943,14 @@ export default function BillEditorScreen() {
                         >
                             <Shuffle size={16} color="#6B7280" />
                             <Text className="ml-2 text-divvit-muted font-medium text-sm">Randomize</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handleClearAssignments}
+                            activeOpacity={0.7}
+                            className="flex-row items-center bg-red-50 px-4 py-3 rounded-full"
+                        >
+                            <X size={16} color="#EF4444" />
+                            <Text className="ml-2 text-red-500 font-medium text-sm">Clear</Text>
                         </TouchableOpacity>
                     </View>
                 </KeyboardAwareScrollView>

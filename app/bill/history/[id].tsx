@@ -51,6 +51,27 @@ const formatFullDate = (dateString: string): string => {
     return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} at ${hours % 12 || 12}:${minutes} ${ampm}`;
 };
 
+// Valid participant colors - used to validate stored colors
+const VALID_COLORS = [
+    '#B54CFF', // Purple (primary)
+    '#FF4C4C', // Red
+    '#4CFFB5', // Mint
+    '#FFB54C', // Orange
+    '#4CB5FF', // Blue
+    '#FF69B4', // Pink
+    '#00D9FF', // Cyan
+    '#9B59B6', // Amethyst
+];
+
+const getValidColor = (color: string, index: number): string => {
+    // Check if color is in the valid palette
+    if (VALID_COLORS.includes(color?.toUpperCase()) || VALID_COLORS.includes(color)) {
+        return color;
+    }
+    // Fallback to cycling through valid colors based on index
+    return VALID_COLORS[index % VALID_COLORS.length];
+};
+
 // --- User Row Component ---
 const UserRow = ({
     user,
@@ -65,7 +86,7 @@ const UserRow = ({
         <View
             className="mx-0 mb-0 overflow-hidden"
             style={{
-                backgroundColor: user.color,
+                backgroundColor: getValidColor(user.color, index),
             }}
         >
             <View className="flex-row items-center justify-between px-5 py-5">
@@ -147,7 +168,10 @@ export default function HistoryDetailScreen() {
     }
 
     const { details, total_amount, created_at } = bill;
-    const { items, tax, tip, users, userTotals } = details;
+    const { items, users, userTotals } = details;
+    // Provide defaults for tax and tip in case they're undefined (older bills)
+    const tax = details.tax ?? 0;
+    const tip = details.tip ?? 0;
 
     const handleToggleItems = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -188,10 +212,7 @@ export default function HistoryDetailScreen() {
                         <Text className="text-divvit-muted font-body text-xs uppercase tracking-wider">
                             Total
                         </Text>
-                        <Text
-                            className="font-heading font-bold text-lg"
-                            style={{ color: '#CEFF1A' }}
-                        >
+                        <Text className="font-heading font-bold text-lg text-divvit-text">
                             ${total_amount.toFixed(2)}
                         </Text>
                     </View>
@@ -280,10 +301,7 @@ export default function HistoryDetailScreen() {
                             {/* Total */}
                             <View className="flex-row justify-between px-4 py-3 border-t border-white/10">
                                 <Text className="text-divvit-text font-heading font-bold">Total</Text>
-                                <Text
-                                    className="font-heading font-bold"
-                                    style={{ color: '#CEFF1A' }}
-                                >
+                                <Text className="font-heading font-bold text-divvit-text">
                                     ${total_amount.toFixed(2)}
                                 </Text>
                             </View>

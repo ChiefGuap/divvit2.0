@@ -20,11 +20,11 @@ type BillItem = {
     price: number;
 };
 
-// Tip percentage options matching UI reference
+// Tip percentage options matching beta tester feedback
 const TIP_PERCENTAGES = [
+    { value: 0.15, label: '15%' },
     { value: 0.18, label: '18%' },
     { value: 0.20, label: '20%' },
-    { value: 0.22, label: '22%' },
 ];
 
 export default function TipScreen() {
@@ -44,19 +44,20 @@ export default function TipScreen() {
     }>();
 
     // Parse incoming data
-    const { items, subtotal } = useMemo((): { items: BillItem[]; subtotal: number } => {
+    const { items, subtotal, tax } = useMemo((): { items: BillItem[]; subtotal: number; tax: number } => {
         if (billData) {
             try {
                 const parsed = JSON.parse(billData);
                 return {
                     items: parsed.items || [],
-                    subtotal: Number(parsed.subtotal) || 0
+                    subtotal: Number(parsed.subtotal) || 0,
+                    tax: Number(parsed.tax) || 0
                 };
             } catch (e) {
                 console.error('Failed to parse billData', e);
             }
         }
-        return { items: [], subtotal: 0 };
+        return { items: [], subtotal: 0, tax: 0 };
     }, [billData]);
 
     const users: User[] = useMemo(() => {
@@ -89,8 +90,9 @@ export default function TipScreen() {
     const [noTip, setNoTip] = useState(false);
     const [selectedPercentage, setSelectedPercentage] = useState<number | null>(null);
     const [customTip, setCustomTip] = useState('');
+    const [hasAutoSkipped, setHasAutoSkipped] = useState(false);
 
-    // Pre-fill from scanned tip on mount
+    // Pre-fill from scanned tip on mount, and auto-skip to checkout if tip was already on receipt
     useEffect(() => {
         if (scannedTip > 0 && subtotal > 0) {
             const tipPercentage = scannedTip / subtotal;
@@ -106,11 +108,71 @@ export default function TipScreen() {
                 // Use custom amount
                 setCustomTip(scannedTip.toFixed(2));
             }
+
+            // Auto-skip to checkout since tip was already on the receipt
+            // Use a small delay so user briefly sees the pre-filled tip
+            if (!hasAutoSkipped) {
+                setHasAutoSkipped(true);
+                setTimeout(() => {
+                    handleAutoSkipToCheckout(scannedTip);
+                }, 500);
+            }
         } else {
-            // Default to 20%
-            setSelectedPercentage(0.20);
+            // Default to 18% (middle option)
+            setSelectedPercentage(0.18);
         }
     }, [scannedTip, subtotal]);
+
+    // Auto-skip function for when tip was scanned
+    const handleAutoSkipToCheckout = (tipValue: number) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        const totalWithTip = subtotal + tipValue;
+
+        // Distribute tip proportionally to items
+        const itemsWithTip = items.map((item: BillItem) => {
+            const tipShare = subtotal > 0
+                ? (item.price / subtotal) * tipValue
+                : 0;
+            return {
+                ...item,
+                share_of_tip: Math.round(tipShare * 100) / 100
+            };
+        });
+
+        // Calculate user totals with tip included
+        const userTotals: Record<string, number> = {};
+        users.forEach(u => userTotals[u.id] = 0);
+
+        Object.entries(assignments).forEach(([itemId, userIds]) => {
+            const item = itemsWithTip.find((i: any) => i.id === itemId);
+            if (item && Array.isArray(userIds) && userIds.length > 0) {
+                const costPerUser = (item.price + item.share_of_tip) / userIds.length;
+                userIds.forEach((userId: string) => {
+                    if (userTotals[userId] !== undefined) {
+                        userTotals[userId] += costPerUser;
+                    }
+                });
+            }
+        });
+
+        router.push({
+            pathname: '/bill/checkout' as any,
+            params: {
+                billId: billId,
+                billData: JSON.stringify({
+                    items: itemsWithTip,
+                    tip: tipValue,
+                    tax: tax,
+                    total: totalWithTip,
+                    subtotal: subtotal
+                }),
+                users: JSON.stringify(users),
+                assignments: JSON.stringify(assignments),
+                userTotals: JSON.stringify(userTotals)
+            }
+        });
+    };
 
     // Calculate tip amount
     const tipAmount = useMemo(() => {
@@ -193,6 +255,7 @@ export default function TipScreen() {
                 billData: JSON.stringify({
                     items: itemsWithTip,
                     tip: tipAmount,
+                    tax: tax,
                     total: total,
                     subtotal: subtotal
                 }),

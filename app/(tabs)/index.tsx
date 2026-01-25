@@ -257,11 +257,45 @@ export default function HomeScreen() {
     );
   };
 
-  const handleViewHistory = (billId: string) => {
+  const handleViewHistory = async (billId: string) => {
     Haptics.selectionAsync();
-    router.push({
-      pathname: `/bill/history/${billId}` as any,
-    });
+
+    // Fetch complete bill data from Supabase before navigating
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/bills?id=eq.${billId}&select=*`,
+        {
+          headers: {
+            'apikey': supabaseKey!,
+            'Authorization': `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch bill');
+      }
+
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const bill = data[0];
+        router.push({
+          pathname: `/bill/history/${billId}` as any,
+          params: {
+            billData: JSON.stringify(bill),
+          }
+        });
+      } else {
+        Alert.alert('Error', 'Bill not found.');
+      }
+    } catch (error) {
+      console.error('Error fetching bill for history:', error);
+      Alert.alert('Error', 'Failed to load bill details.');
+    }
   };
 
   return (

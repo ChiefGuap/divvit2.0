@@ -1,0 +1,1 @@
+"""Divvit Backend Application Package."""
