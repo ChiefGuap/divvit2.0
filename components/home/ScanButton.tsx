@@ -16,7 +16,7 @@ export const ScanButton = ({ onPress }: ScanButtonProps) => {
 
     return (
         <TouchableOpacity
-            className="w-full h-48 rounded-3xl overflow-hidden mb-2 active:opacity-90"
+            className="w-full h-48 rounded-3xl overflow-hidden mb-1 active:opacity-90"
             onPress={handlePress}
         >
             <LinearGradient
