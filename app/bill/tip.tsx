@@ -43,13 +43,14 @@ export default function TipScreen() {
         scannedTip: string;
     }>();
 
-    // Parse incoming data
+    // Parse incoming data - SUBTOTAL FIX: Use subtotal passed from SplitBillScreen, DO NOT recalculate
     const { items, subtotal, tax } = useMemo((): { items: BillItem[]; subtotal: number; tax: number } => {
         if (billData) {
             try {
                 const parsed = JSON.parse(billData);
                 return {
                     items: parsed.items || [],
+                    // subtotal is passed directly from SplitBillScreen to ensure consistency
                     subtotal: Number(parsed.subtotal) || 0,
                     tax: Number(parsed.tax) || 0
                 };

@@ -21,9 +21,8 @@ export const parseReceiptWithGemini = async (imageUri: string) => {
         const response = await fetch(BACKEND_URL, {
             method: 'POST',
             body: formData,
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
+            // REMOVED: headers object with Content-Type. 
+            // React Native will automatically set Content-Type: multipart/form-data; boundary=...
         });
 
         if (!response.ok) {

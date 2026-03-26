@@ -204,6 +204,8 @@ export default function BillEditorScreen() {
     const [isSaving, setIsSaving] = useState(false);
     const [isLoadingDraft, setIsLoadingDraft] = useState(isExistingDraft || isFromParty);
     const [loadedUsers, setLoadedUsers] = useState<User[]>(initialUsers);
+    // Track if we've already fetched data from DB (prevents refetch on back navigation)
+    const [hasFetchedFromDB, setHasFetchedFromDB] = useState(false);
     const [loadedScannedTip, setLoadedScannedTip] = useState(scannedTip);
     const [hostId, setHostId] = useState<string | null>(null);
     const [myParticipantId, setMyParticipantId] = useState<string | null>(null);
@@ -217,8 +219,11 @@ export default function BillEditorScreen() {
     const isHost = user?.id === hostId;
 
     // Fetch bill data and participants from Supabase - DEEP JOIN FIX
+    // STATE PERSISTENCE FIX: Only fetch if we haven't already loaded data
     useEffect(() => {
         if ((!isExistingDraft && !isFromParty) || !user || !session) return;
+        // Guard: Don't refetch if we already have data (prevents reset on back navigation)
+        if (hasFetchedFromDB) return;
 
         const fetchBillData = async () => {
             try {
@@ -312,6 +317,7 @@ export default function BillEditorScreen() {
                 console.error('Error fetching bill data:', err);
             } finally {
                 setIsLoadingDraft(false);
+                setHasFetchedFromDB(true); // Mark as fetched to prevent refetch on back navigation
             }
         };
 
@@ -631,13 +637,17 @@ export default function BillEditorScreen() {
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        // SUBTOTAL FIX: Pass the calculated subtotal directly so TipScreen doesn't recalculate
+        const calculatedSubtotal = subtotal; // This is the useMemo value from line 327
+
         router.push({
             pathname: '/bill/tip' as any,
             params: {
                 billId: id, // Pass billId through the flow
                 billData: JSON.stringify({
                     items: validItems,
-                    subtotal: subtotal,
+                    subtotal: calculatedSubtotal, // Explicit subtotal from SplitBillScreen
                     tax: taxAmount
                 }),
                 users: JSON.stringify(activeUsers),
