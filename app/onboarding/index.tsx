@@ -1,276 +1,195 @@
-import React, { useState, useRef } from 'react';
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    Dimensions,
-    FlatList,
-    ViewToken,
-    SafeAreaView,
-} from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Home, Camera, Sparkles } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
-    withSpring,
-    interpolate,
-    Extrapolation,
+    withTiming,
+    withDelay,
+    Easing,
 } from 'react-native-reanimated';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Slide data
-const slides = [
-    {
-        id: '1',
-        title: 'Create & Join',
-        description: 'Start a bill or join with a link. Splitting has never been easier.',
-        icon: Home,
-        color: '#B54CFF',
-        gradient: ['#B54CFF', '#8B5CF6'],
-    },
-    {
-        id: '2',
-        title: 'Split & Scan',
-        description: 'Scan receipts instantly or enter items manually. AI does the math.',
-        icon: Camera,
-        color: '#22C55E',
-        gradient: ['#22C55E', '#16A34A'],
-    },
-    {
-        id: '3',
-        title: 'Earn Rewards',
-        description: 'Get points for every split. Redeem for exclusive perks and deals.',
-        icon: Sparkles,
-        color: '#F59E0B',
-        gradient: ['#F59E0B', '#D97706'],
-    },
-];
-
-// Individual slide component
-const SlideItem = ({ item, index, scrollX }: { item: typeof slides[0]; index: number; scrollX: Animated.SharedValue<number> }) => {
-    const Icon = item.icon;
-
-    const animatedStyle = useAnimatedStyle(() => {
-        const inputRange = [
-            (index - 1) * SCREEN_WIDTH,
-            index * SCREEN_WIDTH,
-            (index + 1) * SCREEN_WIDTH,
-        ];
-
-        const scale = interpolate(
-            scrollX.value,
-            inputRange,
-            [0.8, 1, 0.8],
-            Extrapolation.CLAMP
-        );
-
-        const opacity = interpolate(
-            scrollX.value,
-            inputRange,
-            [0.5, 1, 0.5],
-            Extrapolation.CLAMP
-        );
-
-        return {
-            transform: [{ scale }],
-            opacity,
-        };
-    });
-
-    return (
-        <View style={{ width: SCREEN_WIDTH }} className="items-center justify-center px-8">
-            <Animated.View
-                style={[animatedStyle]}
-                className="items-center"
-            >
-                {/* Icon Container */}
-                <View
-                    className="w-32 h-32 rounded-full items-center justify-center mb-8"
-                    style={{
-                        backgroundColor: `${item.color}20`,
-                        shadowColor: item.color,
-                        shadowOffset: { width: 0, height: 8 },
-                        shadowOpacity: 0.3,
-                        shadowRadius: 16,
-                        elevation: 8,
-                    }}
-                >
-                    <View
-                        className="w-24 h-24 rounded-full items-center justify-center"
-                        style={{ backgroundColor: item.color }}
-                    >
-                        <Icon size={48} color="#FFFFFF" strokeWidth={2} />
-                    </View>
-                </View>
-
-                {/* Title */}
-                <Text className="text-3xl font-heading font-bold text-divvit-text text-center mb-4">
-                    {item.title}
-                </Text>
-
-                {/* Description */}
-                <Text className="text-base font-body text-divvit-muted text-center leading-6 px-4">
-                    {item.description}
-                </Text>
-            </Animated.View>
-        </View>
-    );
-};
-
-// Pagination dot component
-const PaginationDot = ({ index, scrollX }: { index: number; scrollX: Animated.SharedValue<number> }) => {
-    const animatedStyle = useAnimatedStyle(() => {
-        const inputRange = [
-            (index - 1) * SCREEN_WIDTH,
-            index * SCREEN_WIDTH,
-            (index + 1) * SCREEN_WIDTH,
-        ];
-
-        const width = interpolate(
-            scrollX.value,
-            inputRange,
-            [8, 24, 8],
-            Extrapolation.CLAMP
-        );
-
-        const opacity = interpolate(
-            scrollX.value,
-            inputRange,
-            [0.3, 1, 0.3],
-            Extrapolation.CLAMP
-        );
-
-        return {
-            width,
-            opacity,
-        };
-    });
-
-    return (
-        <Animated.View
-            style={[animatedStyle]}
-            className="h-2 rounded-full bg-divvit-secondary mx-1"
-        />
-    );
-};
-
-export default function TutorialScreen() {
+export default function SplashScreen() {
     const router = useRouter();
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const scrollX = useSharedValue(0);
-    const flatListRef = useRef<FlatList>(null);
 
-    const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-        if (viewableItems.length > 0 && viewableItems[0].index !== null) {
-            setCurrentIndex(viewableItems[0].index);
-        }
-    }).current;
+    const logoOpacity = useSharedValue(0);
+    const logoTranslate = useSharedValue(30);
+    const wordmarkOpacity = useSharedValue(0);
+    const wordmarkTranslate = useSharedValue(30);
+    const dividerOpacity = useSharedValue(0);
+    const taglineOpacity = useSharedValue(0);
+    const buttonsOpacity = useSharedValue(0);
+    const buttonsTranslate = useSharedValue(40);
+    const bottomTagOpacity = useSharedValue(0);
 
-    const viewabilityConfig = useRef({
-        itemVisiblePercentThreshold: 50,
-    }).current;
+    useEffect(() => {
+        const cfg = { duration: 600, easing: Easing.out(Easing.exp) };
+        logoOpacity.value = withDelay(100, withTiming(1, cfg));
+        logoTranslate.value = withDelay(100, withTiming(0, cfg));
+        wordmarkOpacity.value = withDelay(250, withTiming(1, cfg));
+        wordmarkTranslate.value = withDelay(250, withTiming(0, cfg));
+        dividerOpacity.value = withDelay(400, withTiming(1, { duration: 500 }));
+        taglineOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
+        buttonsOpacity.value = withDelay(650, withTiming(1, { duration: 500 }));
+        buttonsTranslate.value = withDelay(650, withTiming(0, cfg));
+        bottomTagOpacity.value = withDelay(800, withTiming(1, { duration: 500 }));
+    }, []);
+
+    const logoStyle = useAnimatedStyle(() => ({
+        opacity: logoOpacity.value,
+        transform: [{ translateY: logoTranslate.value }],
+    }));
+    const wordmarkStyle = useAnimatedStyle(() => ({
+        opacity: wordmarkOpacity.value,
+        transform: [{ translateY: wordmarkTranslate.value }],
+    }));
+    const dividerStyle = useAnimatedStyle(() => ({ opacity: dividerOpacity.value }));
+    const taglineStyle = useAnimatedStyle(() => ({ opacity: taglineOpacity.value }));
+    const buttonsStyle = useAnimatedStyle(() => ({
+        opacity: buttonsOpacity.value,
+        transform: [{ translateY: buttonsTranslate.value }],
+    }));
+    const bottomTagStyle = useAnimatedStyle(() => ({ opacity: bottomTagOpacity.value }));
 
     const handleGetStarted = async () => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         router.push('/onboarding/personal-info');
     };
 
-    const handleNext = async () => {
-        await Haptics.selectionAsync();
-        if (currentIndex < slides.length - 1) {
-            flatListRef.current?.scrollToIndex({
-                index: currentIndex + 1,
-                animated: true,
-            });
-        }
+    const handleSignIn = async () => {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push('/(auth)/login');
     };
-
-    const handleSkip = async () => {
-        await Haptics.selectionAsync();
-        flatListRef.current?.scrollToIndex({
-            index: slides.length - 1,
-            animated: true,
-        });
-    };
-
-    const isLastSlide = currentIndex === slides.length - 1;
 
     return (
-        <SafeAreaView className="flex-1 bg-white">
-            <StatusBar style="dark" />
+        <View style={{ flex: 1 }}>
+            <StatusBar style="light" />
+            <LinearGradient
+                colors={['#5B35D5', '#4b29b4', '#3D1FA8']}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 0.9, y: 1 }}
+                style={{ flex: 1 }}
+            >
+                {/* Ambient glow orbs */}
+                <View style={{
+                    position: 'absolute', top: -80, left: -80,
+                    width: 300, height: 300, borderRadius: 150,
+                    backgroundColor: 'rgba(147,112,255,0.25)',
+                }} />
+                <View style={{
+                    position: 'absolute', top: SCREEN_HEIGHT * 0.35, right: -100,
+                    width: 280, height: 280, borderRadius: 140,
+                    backgroundColor: 'rgba(91,53,213,0.3)',
+                }} />
+                <View style={{
+                    position: 'absolute', bottom: 100, left: -60,
+                    width: 200, height: 200, borderRadius: 100,
+                    backgroundColor: 'rgba(120,80,240,0.2)',
+                }} />
 
-            {/* Skip Button */}
-            {!isLastSlide && (
-                <TouchableOpacity
-                    onPress={handleSkip}
-                    className="absolute top-16 right-6 z-10 py-2 px-4"
-                    activeOpacity={0.7}
-                >
-                    <Text className="text-divvit-muted font-body text-base">Skip</Text>
-                </TouchableOpacity>
-            )}
+                {/* Main content */}
+                <View style={{
+                    flex: 1, alignItems: 'center',
+                    justifyContent: 'center', paddingHorizontal: 32,
+                }}>
+                    {/* App icon */}
+                    <Animated.View style={[logoStyle, { marginBottom: 28 }]}>
+                        <View style={{
+                            width: 96, height: 96, borderRadius: 28,
+                            backgroundColor: 'rgba(255,255,255,0.12)',
+                            alignItems: 'center', justifyContent: 'center',
+                            borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
+                        }}>
+                            <Text style={{
+                                fontSize: 48, fontWeight: '800',
+                                color: '#ffffff', letterSpacing: -2,
+                            }}>D</Text>
+                        </View>
+                    </Animated.View>
 
-            {/* Carousel */}
-            <View className="flex-1 justify-center">
-                <FlatList
-                    ref={flatListRef}
-                    data={slides}
-                    renderItem={({ item, index }) => (
-                        <SlideItem item={item} index={index} scrollX={scrollX} />
-                    )}
-                    keyExtractor={(item) => item.id}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    bounces={false}
-                    onScroll={(event) => {
-                        scrollX.value = event.nativeEvent.contentOffset.x;
-                    }}
-                    scrollEventThrottle={16}
-                    onViewableItemsChanged={onViewableItemsChanged}
-                    viewabilityConfig={viewabilityConfig}
-                />
-            </View>
+                    {/* Wordmark */}
+                    <Animated.Text style={[wordmarkStyle, {
+                        fontSize: 64, fontWeight: '800',
+                        color: '#ffffff', letterSpacing: -2, marginBottom: 20,
+                    }]}>
+                        Divvit
+                    </Animated.Text>
 
-            {/* Bottom Section */}
-            <View className="px-6 pb-8">
-                {/* Pagination */}
-                <View className="flex-row justify-center items-center mb-8">
-                    {slides.map((_, index) => (
-                        <PaginationDot key={index} index={index} scrollX={scrollX} />
-                    ))}
+                    {/* Divider */}
+                    <Animated.View style={[dividerStyle, {
+                        width: 64, height: 3,
+                        backgroundColor: 'rgba(255,255,255,0.35)',
+                        borderRadius: 999, marginBottom: 20,
+                    }]} />
+
+                    {/* Tagline */}
+                    <Animated.Text style={[taglineStyle, {
+                        fontSize: 20, fontWeight: '500',
+                        color: 'rgba(255,255,255,0.85)',
+                        marginBottom: 56, textAlign: 'center',
+                    }]}>
+                        Splitting made simple.
+                    </Animated.Text>
+
+                    {/* Buttons */}
+                    <Animated.View style={[buttonsStyle, { width: '100%', gap: 14 }]}>
+                        <TouchableOpacity
+                            onPress={handleGetStarted}
+                            activeOpacity={0.85}
+                            style={{
+                                backgroundColor: '#ffffff',
+                                height: 60, borderRadius: 999,
+                                flexDirection: 'row', alignItems: 'center',
+                                justifyContent: 'center', gap: 10,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 4 },
+                                shadowOpacity: 0.15, shadowRadius: 12,
+                                elevation: 6,
+                            }}
+                        >
+                            <Text style={{
+                                fontSize: 17, fontWeight: '800',
+                                color: '#4b29b4', letterSpacing: -0.3,
+                            }}>Get Started</Text>
+                            <ArrowRight size={20} color="#4b29b4" strokeWidth={2.5} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={handleSignIn}
+                            activeOpacity={0.75}
+                            style={{
+                                backgroundColor: 'rgba(255,255,255,0.12)',
+                                height: 60, borderRadius: 999,
+                                alignItems: 'center', justifyContent: 'center',
+                                borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+                            }}
+                        >
+                            <Text style={{
+                                fontSize: 17, fontWeight: '700', color: '#ffffff',
+                            }}>Sign In</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
                 </View>
 
-                {/* Action Button */}
-                {isLastSlide ? (
-                    <TouchableOpacity
-                        onPress={handleGetStarted}
-                        className="bg-divvit-secondary h-14 rounded-2xl items-center justify-center"
-                        style={{
-                            shadowColor: '#B54CFF',
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 8,
-                            elevation: 5,
-                        }}
-                        activeOpacity={0.8}
-                    >
-                        <Text className="text-white font-bold text-lg">Get Started</Text>
-                    </TouchableOpacity>
-                ) : (
-                    <TouchableOpacity
-                        onPress={handleNext}
-                        className="bg-divvit-card h-14 rounded-2xl items-center justify-center border border-gray-200"
-                        activeOpacity={0.8}
-                    >
-                        <Text className="text-divvit-text font-bold text-lg">Next</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-        </SafeAreaView>
+                {/* Bottom tagline */}
+                <Animated.View style={[bottomTagStyle, {
+                    alignItems: 'center', paddingBottom: 40,
+                }]}>
+                    <Text style={{
+                        fontSize: 10, fontWeight: '800',
+                        color: 'rgba(255,255,255,0.4)',
+                        letterSpacing: 3, textTransform: 'uppercase',
+                    }}>
+                        Your Social Economy, Elevated
+                    </Text>
+                </Animated.View>
+            </LinearGradient>
+        </View>
     );
 }

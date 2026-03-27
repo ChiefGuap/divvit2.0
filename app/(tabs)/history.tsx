@@ -1,45 +1,30 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
     View,
     Text,
     FlatList,
-    ScrollView,
+    TouchableOpacity,
+    Share,
     Dimensions,
-    RefreshControl,
     ViewToken,
-    LayoutAnimation,
-    Platform,
-    UIManager,
 } from 'react-native';
+import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Clock, Receipt, CheckCircle, AlertCircle } from 'lucide-react-native';
+import { Utensils, Share2, CheckCircle } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
-import { DigitalReceipt, CARD_WIDTH, CARD_HEIGHT } from '../../components/DigitalReceipt';
 
-// Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CAROUSEL_HEIGHT = SCREEN_HEIGHT * 0.55;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // --- Types ---
-type User = {
-    id: string;
-    name: string;
-    color: string;
-    initials: string;
-};
-
+type User = { id: string; name: string; color: string; initials: string; };
+type BillItem = { id: string; name: string; price: number; };
 type Bill = {
     id: string;
     host_id: string;
     total_amount: number;
     details: {
-        items: Array<{ id: string; name: string; price: number }>;
+        items: BillItem[];
         tax: number;
         tip: number;
         subtotal: number;
@@ -52,328 +37,323 @@ type Bill = {
     created_at: string;
 };
 
-// --- Helper Functions ---
-const getTimeAgo = (dateString: string): string => {
-    const now = new Date();
-    const then = new Date(dateString);
-    const diffMs = now.getTime() - then.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return then.toLocaleDateString();
+// --- Helpers ---
+const formatDate = (dateString: string): string => {
+    const d = new Date(dateString);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const hours = d.getHours();
+    const mins = d.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const h12 = hours % 12 || 12;
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} • ${h12}:${mins} ${ampm}`;
 };
 
-// --- Animated Pagination Dots Component ---
-const PaginationDots = ({ count, activeIndex }: { count: number; activeIndex: number }) => {
-    const visibleCount = Math.min(count, 5);
+const getBillSettled = (bill: Bill): boolean => {
+    const { users = [], paidStatus = [] } = bill.details || {};
+    return users.length > 0 && paidStatus.length >= users.length;
+};
+
+const getSplitType = (bill: Bill): string => {
+    const { assignments = {} } = bill.details || {};
+    const hasItemized = Object.values(assignments).some(ids => ids && ids.length > 0);
+    return hasItemized ? 'ITEMIZED' : 'EQUAL SPLIT';
+};
+
+// --- Receipt Card ---
+const ReceiptCard = ({ bill, onShare }: { bill: Bill; onShare: () => void }) => {
+    const { details, created_at, total_amount, host_id } = bill;
+    const { items = [], tax = 0, tip = 0, subtotal = 0, users = [], userTotals = {}, paidStatus = [] } = details || {};
+    const settled = getBillSettled(bill);
+    const splitType = getSplitType(bill);
+    const dateStr = formatDate(created_at);
+    const computedSubtotal = subtotal || items.reduce((acc, i) => acc + i.price, 0);
 
     return (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12 }}>
-            {Array.from({ length: visibleCount }).map((_, index) => {
-                const isActive = index === activeIndex;
+        <ScrollView
+            style={{ width: SCREEN_WIDTH }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, paddingTop: 8 }}
+            showsVerticalScrollIndicator={false}
+        >
+            {/* Main Receipt Card */}
+            <View style={{
+                backgroundColor: '#ffffff',
+                borderRadius: 32,
+                padding: 32,
+                shadowColor: '#141b2b',
+                shadowOffset: { width: 0, height: 12 },
+                shadowOpacity: 0.06,
+                shadowRadius: 32,
+                elevation: 4,
+                marginBottom: 16,
+            }}>
+                {/* A) Restaurant Header */}
+                <View style={{ alignItems: 'center', marginBottom: 32 }}>
+                    <View style={{
+                        width: 64, height: 64, backgroundColor: '#6346cd',
+                        borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+                        marginBottom: 16,
+                    }}>
+                        <Utensils size={32} color="#ffffff" />
+                    </View>
+                    <Text style={{ fontSize: 28, fontWeight: '800', color: '#141b2b', letterSpacing: -0.5, marginBottom: 4 }}>
+                        Shared Bill
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#484554', fontWeight: '500', marginBottom: 16 }}>
+                        {dateStr}
+                    </Text>
+                    <View style={{
+                        paddingHorizontal: 16, paddingVertical: 6,
+                        backgroundColor: settled ? '#dcfce7' : '#fef3c7',
+                        borderRadius: 999,
+                    }}>
+                        <Text style={{
+                            fontSize: 10, fontWeight: '800', letterSpacing: 2,
+                            textTransform: 'uppercase',
+                            color: settled ? '#166534' : '#92400e',
+                        }}>
+                            {settled ? 'Settled' : 'Pending'}
+                        </Text>
+                    </View>
+                </View>
 
-                return (
-                    <View
-                        key={index}
-                        style={{
-                            width: isActive ? 20 : 8,
-                            height: 8,
-                            borderRadius: 4,
-                            backgroundColor: isActive ? '#B54CFF' : '#E5E7EB',
-                            marginHorizontal: 4,
-                        }}
-                    />
-                );
-            })}
-            {count > 5 && (
-                <Text style={{ color: '#9CA3AF', fontSize: 10, marginLeft: 4 }}>+{count - 5}</Text>
-            )}
-        </View>
+                {/* B) Receipt Summary */}
+                <View>
+                    {/* Section label */}
+                    <View style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(202,196,214,0.4)', paddingBottom: 8, marginBottom: 20 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#484554', letterSpacing: 2, textTransform: 'uppercase' }}>
+                            Receipt Summary
+                        </Text>
+                    </View>
+
+                    {/* Line items */}
+                    {items.map((item, idx) => (
+                        <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: idx < items.length - 1 ? 16 : 24 }}>
+                            <View style={{ flex: 1, marginRight: 16 }}>
+                                <Text style={{ fontWeight: '700', color: '#141b2b', fontSize: 14 }}>{item.name || 'Item'}</Text>
+                                <Text style={{ fontSize: 12, color: '#484554', marginTop: 2 }}>1 × ${item.price.toFixed(2)}</Text>
+                            </View>
+                            <Text style={{ fontWeight: '700', color: '#141b2b', fontSize: 14 }}>${item.price.toFixed(2)}</Text>
+                        </View>
+                    ))}
+
+                    {/* Dashed divider */}
+                    <View style={{ height: 1, borderWidth: 1, borderColor: '#cac4d6', borderStyle: 'dashed', marginBottom: 20 }} />
+
+                    {/* Totals */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <Text style={{ color: '#484554', fontWeight: '500', fontSize: 14 }}>Subtotal</Text>
+                        <Text style={{ color: '#484554', fontWeight: '700', fontSize: 14 }}>${computedSubtotal.toFixed(2)}</Text>
+                    </View>
+                    {tip > 0 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <Text style={{ color: '#484554', fontWeight: '500', fontSize: 14 }}>Service Charge</Text>
+                            <Text style={{ color: '#484554', fontWeight: '700', fontSize: 14 }}>${tip.toFixed(2)}</Text>
+                        </View>
+                    )}
+                    {tax > 0 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <Text style={{ color: '#484554', fontWeight: '500', fontSize: 14 }}>Tax</Text>
+                            <Text style={{ color: '#484554', fontWeight: '700', fontSize: 14 }}>${tax.toFixed(2)}</Text>
+                        </View>
+                    )}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12 }}>
+                        <Text style={{ fontSize: 20, fontWeight: '900', color: '#141b2b' }}>Total</Text>
+                        <Text style={{ fontSize: 28, fontWeight: '900', color: '#4b29b4' }}>${total_amount.toFixed(2)}</Text>
+                    </View>
+                </View>
+            </View>
+
+            {/* C) The Split Section */}
+            <View style={{
+                backgroundColor: 'rgba(75, 41, 180, 0.05)',
+                borderRadius: 32,
+                padding: 24,
+                borderWidth: 1,
+                borderColor: 'rgba(75, 41, 180, 0.1)',
+                marginBottom: 16,
+            }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '800', color: '#4b29b4', letterSpacing: -0.3 }}>The Split</Text>
+                    <View style={{ backgroundColor: '#4b29b4', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999 }}>
+                        <Text style={{ color: '#ffffff', fontSize: 9, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' }}>
+                            {splitType}
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Person rows */}
+                {users.map((u, idx) => {
+                    const amount = userTotals[u.id] || 0;
+                    const isHost = host_id === u.id;
+                    const isPaid = paidStatus.includes(u.id);
+                    const statusLabel = isHost ? 'PAID' : isPaid ? 'REIMBURSED' : 'OWES';
+                    const done = isHost || isPaid;
+
+                    return (
+                        <View key={u.id} style={{
+                            backgroundColor: '#ffffff',
+                            padding: 16,
+                            borderRadius: 20,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            shadowColor: '#141b2b',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: 0.05,
+                            shadowRadius: 4,
+                            elevation: 1,
+                            borderWidth: 1,
+                            borderColor: 'rgba(75, 41, 180, 0.05)',
+                            marginBottom: idx < users.length - 1 ? 12 : 0,
+                        }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                                <View style={{
+                                    width: 48, height: 48, borderRadius: 24,
+                                    backgroundColor: u.color || '#6346cd',
+                                    alignItems: 'center', justifyContent: 'center',
+                                    borderWidth: 2, borderColor: 'rgba(75,41,180,0.2)',
+                                }}>
+                                    <Text style={{ fontWeight: '700', color: '#ffffff', fontSize: 16 }}>
+                                        {u.initials}
+                                    </Text>
+                                </View>
+                                <View>
+                                    <Text style={{ fontWeight: '800', color: '#141b2b', fontSize: 14 }}>{u.name}</Text>
+                                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#484554', marginTop: 2 }}>
+                                        {statusLabel}
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={{ alignItems: 'flex-end' }}>
+                                <Text style={{ fontWeight: '900', color: '#4b29b4', fontSize: 15 }}>
+                                    ${amount.toFixed(2)}
+                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}>
+                                    <CheckCircle size={12} color={done ? '#16a34a' : '#d97706'} />
+                                    <Text style={{ fontSize: 9, fontWeight: '700', color: done ? '#16a34a' : '#d97706', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        {done ? 'Done' : 'Pending'}
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                    );
+                })}
+
+                {/* D) Share Button */}
+                <TouchableOpacity
+                    onPress={onShare}
+                    activeOpacity={0.85}
+                    style={{
+                        marginTop: 20,
+                        backgroundColor: '#6346cd',
+                        borderRadius: 999,
+                        paddingVertical: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        shadowColor: '#4b29b4',
+                        shadowOffset: { width: 0, height: 8 },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 16,
+                        elevation: 4,
+                    }}
+                >
+                    <Share2 size={18} color="#ffffff" />
+                    <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 16 }}>Share Receipt</Text>
+                </TouchableOpacity>
+            </View>
+        </ScrollView>
     );
 };
 
-// --- Skeleton Loader ---
-const SkeletonReceipt = () => (
-    <View
-        style={{
-            width: CARD_WIDTH,
-            height: CARD_HEIGHT * 0.8,
-            marginHorizontal: (SCREEN_WIDTH - CARD_WIDTH) / 2 - 10,
-            backgroundColor: '#F3F4F6',
-            borderRadius: 8,
-        }}
-    >
-        <View style={{ padding: 20 }}>
-            <View style={{ height: 20, width: '50%', backgroundColor: '#E5E7EB', borderRadius: 4, alignSelf: 'center', marginBottom: 16 }} />
-            <View style={{ height: 12, width: '40%', backgroundColor: '#E5E7EB', borderRadius: 4, alignSelf: 'center', marginBottom: 8 }} />
-            <View style={{ height: 12, width: '30%', backgroundColor: '#E5E7EB', borderRadius: 4, alignSelf: 'center', marginBottom: 24 }} />
-            <View style={{ height: 1, backgroundColor: '#E5E7EB', marginBottom: 16 }} />
-            <View style={{ height: 14, width: '80%', backgroundColor: '#E5E7EB', borderRadius: 4, marginBottom: 8 }} />
-            <View style={{ height: 14, width: '60%', backgroundColor: '#E5E7EB', borderRadius: 4, marginBottom: 24 }} />
-            <View style={{ height: 1, backgroundColor: '#E5E7EB', marginBottom: 16 }} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <View style={{ height: 24, width: '30%', backgroundColor: '#E5E7EB', borderRadius: 4 }} />
-                <View style={{ height: 24, width: '40%', backgroundColor: '#E5E7EB', borderRadius: 4 }} />
-            </View>
-        </View>
-    </View>
-);
-
-const SkeletonBriefing = () => (
-    <View style={{ padding: 20 }}>
-        <View style={{ height: 24, width: '50%', backgroundColor: '#E5E7EB', borderRadius: 4, marginBottom: 16 }} />
-        <View style={{ flexDirection: 'row', marginBottom: 20 }}>
-            {[1, 2, 3].map(i => (
-                <View key={i} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E5E7EB', marginRight: 12 }} />
-            ))}
-        </View>
-        <View style={{ height: 16, width: '80%', backgroundColor: '#E5E7EB', borderRadius: 4, marginBottom: 8 }} />
-        <View style={{ height: 16, width: '60%', backgroundColor: '#E5E7EB', borderRadius: 4 }} />
-    </View>
-);
-
-// --- User Avatar Component ---
-const UserAvatar = ({ user, amount }: { user: User; amount: number }) => (
-    <View style={{ alignItems: 'center', marginRight: 16 }}>
-        <View
-            style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: user.color,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 2,
-                borderColor: 'rgba(0,0,0,0.1)',
-            }}
-        >
-            <Text style={{ fontWeight: 'bold', color: '#000', fontSize: 14 }}>
-                {user.initials}
-            </Text>
-        </View>
-        <Text style={{ color: '#6B7280', fontSize: 10, marginTop: 4 }}>
-            ${amount.toFixed(2)}
-        </Text>
+// --- Dots Indicator ---
+const DotsIndicator = ({ count, activeIndex }: { count: number; activeIndex: number }) => (
+    <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, gap: 6 }}>
+        {Array.from({ length: count }).map((_, i) => (
+            <View key={i} style={{
+                width: i === activeIndex ? 20 : 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: i === activeIndex ? '#4b29b4' : '#cac4d6',
+            }} />
+        ))}
     </View>
 );
 
 // --- Empty State ---
 const EmptyState = () => (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
-        <View
-            style={{
-                width: 80,
-                height: 80,
-                borderRadius: 40,
-                backgroundColor: '#F3F4F6',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 20,
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-            }}
-        >
-            <Receipt size={32} color="#9CA3AF" />
+        <View style={{
+            width: 80, height: 80, borderRadius: 40,
+            backgroundColor: '#f1f3ff', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 20, borderWidth: 1, borderColor: '#dce2f7',
+        }}>
+            <Utensils size={32} color="#9CA3AF" />
         </View>
-        <Text style={{ color: '#111827', fontWeight: 'bold', fontSize: 18, textAlign: 'center', marginBottom: 8 }}>
-            No scanned bills yet.
+        <Text style={{ color: '#141b2b', fontWeight: '800', fontSize: 18, textAlign: 'center', marginBottom: 8 }}>
+            No receipts yet
         </Text>
-        <Text style={{ color: '#6B7280', fontSize: 14, textAlign: 'center' }}>
-            Your splitting history will appear here.
+        <Text style={{ color: '#484554', fontSize: 14, textAlign: 'center' }}>
+            Start a new split to see it here!
         </Text>
     </View>
 );
 
-// --- Briefing Panel ---
-const BriefingPanel = ({ bill }: { bill: Bill | null }) => {
-    if (!bill) {
-        return (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#6B7280' }}>Swipe to select a receipt</Text>
+// --- Skeleton ---
+const SkeletonCard = () => (
+    <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 20, paddingTop: 8 }}>
+        <View style={{
+            backgroundColor: '#ffffff', borderRadius: 32, padding: 32,
+            shadowColor: '#141b2b', shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.06, shadowRadius: 32, elevation: 4,
+        }}>
+            <View style={{ alignItems: 'center', marginBottom: 24 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: '#e9edff', marginBottom: 12 }} />
+                <View style={{ width: 140, height: 24, backgroundColor: '#e9edff', borderRadius: 8, marginBottom: 8 }} />
+                <View style={{ width: 100, height: 14, backgroundColor: '#f1f3ff', borderRadius: 6 }} />
             </View>
-        );
-    }
-
-    const { details, created_at } = bill;
-    const { users = [], userTotals = {}, paidStatus = [] } = details || {};
-    const isSettled = users.length > 0 && paidStatus.length >= users.length;
-    const timeAgo = getTimeAgo(created_at);
-
-    return (
-        <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingBottom: 100 }}
-            showsVerticalScrollIndicator={false}
-        >
-            <View
-                key={bill.id}
-                style={{ paddingHorizontal: 20, paddingTop: 16 }}
-            >
-                {/* Status Badge & Time */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <View
-                        style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                            borderRadius: 20,
-                            backgroundColor: isSettled ? 'rgba(34, 197, 94, 0.15)' : 'rgba(249, 115, 22, 0.15)',
-                        }}
-                    >
-                        {isSettled ? (
-                            <CheckCircle size={14} color="#22C55E" />
-                        ) : (
-                            <AlertCircle size={14} color="#F97316" />
-                        )}
-                        <Text
-                            style={{
-                                marginLeft: 6,
-                                fontWeight: '600',
-                                fontSize: 12,
-                                color: isSettled ? '#22C55E' : '#F97316',
-                            }}
-                        >
-                            {isSettled ? 'Settled' : 'Pending'}
-                        </Text>
-                    </View>
-                    <Text style={{ color: '#6B7280', fontSize: 12 }}>{timeAgo}</Text>
+            {[1, 2, 3].map(i => (
+                <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <View style={{ width: '60%', height: 14, backgroundColor: '#f1f3ff', borderRadius: 6 }} />
+                    <View style={{ width: '20%', height: 14, backgroundColor: '#f1f3ff', borderRadius: 6 }} />
                 </View>
-
-                {/* The Split - User Avatars */}
-                <Text style={{ color: '#6B7280', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
-                    The Split
-                </Text>
-                <View style={{ flexDirection: 'row', marginBottom: 20 }}>
-                    {users.slice(0, 5).map(user => (
-                        <UserAvatar
-                            key={user.id}
-                            user={user}
-                            amount={userTotals[user.id] || 0}
-                        />
-                    ))}
-                    {users.length > 5 && (
-                        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                            <View
-                                style={{
-                                    width: 44,
-                                    height: 44,
-                                    borderRadius: 22,
-                                    backgroundColor: '#E5E7EB',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <Text style={{ color: '#111827', fontSize: 12 }}>+{users.length - 5}</Text>
-                            </View>
-                        </View>
-                    )}
-                </View>
-
-                {/* Activity Feed */}
-                <Text style={{ color: '#6B7280', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
-                    Activity
-                </Text>
-                <View
-                    style={{
-                        backgroundColor: '#F9FAFB',
-                        borderRadius: 12,
-                        padding: 12,
-                        borderWidth: 1,
-                        borderColor: '#E5E7EB',
-                    }}
-                >
-                    {users.length > 0 ? (
-                        users.slice(0, 3).map((user, index) => {
-                            const amount = userTotals[user.id] || 0;
-                            const isPaid = paidStatus.includes(user.id);
-                            return (
-                                <View
-                                    key={user.id}
-                                    style={{
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        paddingVertical: 8,
-                                        borderBottomWidth: index < Math.min(users.length, 3) - 1 ? 1 : 0,
-                                        borderBottomColor: '#E5E7EB',
-                                    }}
-                                >
-                                    <View
-                                        style={{
-                                            width: 28,
-                                            height: 28,
-                                            borderRadius: 14,
-                                            backgroundColor: user.color,
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            marginRight: 10,
-                                        }}
-                                    >
-                                        <Text style={{ fontWeight: 'bold', color: '#000', fontSize: 10 }}>
-                                            {user.initials}
-                                        </Text>
-                                    </View>
-                                    <Text style={{ color: '#111827', flex: 1, fontSize: 13 }}>
-                                        <Text style={{ fontWeight: '600' }}>{user.name}</Text>
-                                        {isPaid ? ' paid ' : ' owes '}
-                                        <Text style={{ color: '#B54CFF', fontWeight: '600' }}>${amount.toFixed(2)}</Text>
-                                    </Text>
-                                    {isPaid && (
-                                        <CheckCircle size={14} color="#22C55E" />
-                                    )}
-                                </View>
-                            );
-                        })
-                    ) : (
-                        <Text style={{ color: '#6B7280', fontSize: 13 }}>No activity yet</Text>
-                    )}
-                </View>
-            </View>
-        </ScrollView>
-    );
-};
+            ))}
+        </View>
+    </View>
+);
 
 // --- Main Screen ---
 export default function HistoryScreen() {
-    const router = useRouter();
     const { user, session, isLoading: isAuthLoading } = useAuth();
-    const flatListRef = useRef<FlatList>(null);
-
     const [bills, setBills] = useState<Bill[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
     const [activeIndex, setActiveIndex] = useState(0);
+    const flatListRef = useRef<FlatList>(null);
 
-    // Get the currently active bill based on index
-    const activeBill = useMemo(() => {
-        return bills[activeIndex] || null;
-    }, [bills, activeIndex]);
-
-    // Fetch bills using direct fetch
-    const fetchBills = useCallback(async (showRefresh = false) => {
-        // CRITICAL: Don't fetch while auth is still loading
-        if (isAuthLoading) {
-            return;
+    const handleShare = useCallback(async (bill: Bill) => {
+        try {
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const d = new Date(bill.created_at);
+            const dateStr = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+            const total = `$${bill.total_amount.toFixed(2)}`;
+            const scheme = __DEV__ ? 'divvit-dev' : 'divvit';
+            await Share.share({
+                message: `💸 Divvit Receipt — ${total}\n📅 ${dateStr}\n👥 Split with ${bill.details?.users?.length || 0} people\n\n🔗 ${scheme}://bill/${bill.id}`,
+                title: `Divvit Receipt — ${total}`,
+            });
+        } catch (err) {
+            console.error('Share error:', err);
         }
+    }, []);
 
-        if (!user || !session) {
-            setIsLoading(false);
-            return;
-        }
-
-        if (showRefresh) setRefreshing(true);
-        else setIsLoading(true);
-
+    const fetchBills = useCallback(async () => {
+        if (isAuthLoading) return;
+        if (!user || !session) { setIsLoading(false); return; }
+        setIsLoading(true);
         try {
             const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
             const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-            // Show bills with settled, completed, or closed status (not drafts or deleted)
             const response = await fetch(
                 `${supabaseUrl}/rest/v1/bills?host_id=eq.${user.id}&status=in.(settled,completed,closed)&select=*&order=created_at.desc`,
                 {
@@ -384,206 +364,81 @@ export default function HistoryScreen() {
                     }
                 }
             );
-
-            if (!response.ok) {
-                console.error('Error fetching bills:', response.status);
-                return;
-            }
-
+            if (!response.ok) { console.error('Error fetching bills:', response.status); return; }
             const data = await response.json();
             setBills(data || []);
         } catch (err) {
             console.error('Unexpected error:', err);
         } finally {
             setIsLoading(false);
-            setRefreshing(false);
         }
-    }, [user, session]);
+    }, [user, session, isAuthLoading]);
 
-    useEffect(() => {
-        fetchBills();
-    }, []);
+    useEffect(() => { fetchBills(); }, []);
 
-    const handleRefresh = useCallback(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        fetchBills(true);
-    }, [fetchBills]);
-
-    // Track visible items - update activeIndex when centered item changes
-    // IMPORTANT: No dependencies to prevent callback recreation which breaks FlatList
     const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-        if (viewableItems.length > 0) {
-            const centeredItem = viewableItems[0];
-            if (centeredItem.index !== null) {
-                // Animate the dot width change
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                Haptics.selectionAsync();
-                setActiveIndex(centeredItem.index);
-            }
+        if (viewableItems.length > 0 && viewableItems[0].index !== null) {
+            Haptics.selectionAsync();
+            setActiveIndex(viewableItems[0].index);
         }
     }).current;
 
-    // CRUCIAL: Use itemVisiblePercentThreshold for proper triggering
-    const viewabilityConfig = useRef({
-        itemVisiblePercentThreshold: 50,
-    }).current;
+    const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
-    // Render receipt card
-    const renderReceipt = useCallback(({ item }: { item: Bill }) => (
-        <DigitalReceipt
-            date={item.created_at}
-            total={item.total_amount}
-            items={item.details?.items || []}
-            tax={item.details?.tax || 0}
-            tip={item.details?.tip || 0}
-        />
-    ), []);
+    const renderItem = useCallback(({ item }: { item: Bill }) => (
+        <ReceiptCard bill={item} onShare={() => handleShare(item)} />
+    ), [handleShare]);
 
     const keyExtractor = useCallback((item: Bill) => item.id, []);
 
-    // CRITICAL: If auth is still loading, show loading skeleton
-    // This prevents flash of empty state on web reload
-    if (isAuthLoading) {
+    const Header = () => (
+        <View style={{ paddingHorizontal: 24, height: 56, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 24, fontWeight: '900', color: '#4b29b4', letterSpacing: -0.5 }}>Divvit</Text>
+        </View>
+    );
+
+    if (isAuthLoading || isLoading) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F4F6' }} edges={['top']}>
-                <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Clock size={24} color="#B54CFF" strokeWidth={2} />
-                        <Text style={{ marginLeft: 12, fontSize: 22, fontWeight: 'bold', color: '#111827' }}>
-                            History
-                        </Text>
-                    </View>
-                </View>
-                <View style={{ height: CAROUSEL_HEIGHT, justifyContent: 'center' }}>
-                    <SkeletonReceipt />
-                </View>
-                <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-                    <SkeletonBriefing />
-                </View>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top']}>
+                <Header />
+                <SkeletonCard />
             </SafeAreaView>
         );
     }
 
-    // If auth finished but no session, show loading (NavigationController will redirect)
     if (!session) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }} edges={['top']}>
-                <View style={{ backgroundColor: '#FFFFFF', padding: 20, borderRadius: 12 }}>
-                    <Text style={{ color: '#6B7280' }}>Redirecting...</Text>
-                </View>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff', alignItems: 'center', justifyContent: 'center' }} edges={['top']}>
+                <Text style={{ color: '#484554' }}>Redirecting...</Text>
             </SafeAreaView>
         );
     }
 
-    // Data loading state
-    if (isLoading) {
-        return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F4F6' }} edges={['top']}>
-                {/* Header */}
-                <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Clock size={24} color="#B54CFF" strokeWidth={2} />
-                        <Text style={{ marginLeft: 12, fontSize: 22, fontWeight: 'bold', color: '#111827' }}>
-                            History
-                        </Text>
-                    </View>
-                </View>
-
-                {/* Skeleton Carousel */}
-                <View style={{ height: CAROUSEL_HEIGHT, justifyContent: 'center' }}>
-                    <SkeletonReceipt />
-                </View>
-
-                {/* Skeleton Briefing */}
-                <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-                    <SkeletonBriefing />
-                </View>
-            </SafeAreaView>
-        );
-    }
-
-    // Empty state
     if (bills.length === 0) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F4F6' }} edges={['top']}>
-                <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Clock size={24} color="#B54CFF" strokeWidth={2} />
-                        <Text style={{ marginLeft: 12, fontSize: 22, fontWeight: 'bold', color: '#111827' }}>
-                            History
-                        </Text>
-                    </View>
-                </View>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top']}>
+                <Header />
                 <EmptyState />
             </SafeAreaView>
         );
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F4F6' }} edges={['top']}>
-            {/* Header */}
-            <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Clock size={24} color="#B54CFF" strokeWidth={2} />
-                    <Text style={{ marginLeft: 12, fontSize: 22, fontWeight: 'bold', color: '#111827' }}>
-                        History
-                    </Text>
-                    <View style={{ marginLeft: 'auto', paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#FFFFFF', borderRadius: 12 }}>
-                        <Text style={{ color: '#6B7280', fontSize: 12 }}>{bills.length} bills</Text>
-                    </View>
-                </View>
-            </View>
-
-            {/* Carousel Section */}
-            <View style={{ height: CAROUSEL_HEIGHT }}>
-                <FlatList
-                    ref={flatListRef}
-                    data={bills}
-                    renderItem={renderReceipt}
-                    keyExtractor={keyExtractor}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    snapToInterval={CARD_WIDTH + 20}
-                    decelerationRate="fast"
-                    contentContainerStyle={{
-                        paddingVertical: 10,
-                        paddingHorizontal: 10,
-                    }}
-                    onViewableItemsChanged={onViewableItemsChanged}
-                    viewabilityConfig={viewabilityConfig}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={handleRefresh}
-                            tintColor="#B54CFF"
-                        />
-                    }
-                />
-            </View>
-
-            {/* Pagination Dots */}
-            <PaginationDots count={bills.length} activeIndex={activeIndex} />
-
-            {/* Briefing Panel (Bottom Section) */}
-            <View
-                style={{
-                    flex: 1,
-                    backgroundColor: '#FFFFFF',
-                    borderTopLeftRadius: 24,
-                    borderTopRightRadius: 24,
-                    borderWidth: 1,
-                    borderColor: '#E5E7EB',
-                    overflow: 'hidden',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: -4 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 12,
-                    elevation: 5,
-                }}
-            >
-                <BriefingPanel bill={activeBill} />
-            </View>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top']}>
+            <Header />
+            <FlatList
+                ref={flatListRef}
+                data={bills}
+                renderItem={renderItem}
+                keyExtractor={keyExtractor}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig}
+                style={{ flex: 1 }}
+            />
+            {bills.length > 1 && <DotsIndicator count={bills.length} activeIndex={activeIndex} />}
         </SafeAreaView>
     );
 }

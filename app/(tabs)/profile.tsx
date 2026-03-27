@@ -9,13 +9,18 @@ import {
     ActivityIndicator,
     Alert,
     RefreshControl,
+    Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { LogOut, Edit3, Check, X, DollarSign } from 'lucide-react-native';
+import { LogOut, Edit3, Check, X, Menu } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../context/AuthContext';
 import { getInitials } from '../../types';
+
+import ContactInfoCard from '../../components/profile/ContactInfoCard';
+import PaymentAccountsCard from '../../components/profile/PaymentAccountsCard';
+import QuickStatsCard from '../../components/profile/QuickStatsCard';
 
 export default function ProfileScreen() {
     const router = useRouter();
@@ -129,208 +134,130 @@ export default function ProfileScreen() {
     const displayName = profile
         ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.username || 'User'
         : 'User';
-    const username = profile?.username || 'username';
+    // const username = profile?.username || 'username'; // Left off if unused
     const initials = getInitials(displayName);
 
     return (
-        <SafeAreaView className="flex-1 bg-white">
+        <SafeAreaView className="flex-1 bg-surface">
             <StatusBar style="dark" />
 
             {/* Header */}
-            <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
-                <Text className="text-2xl font-heading font-bold text-divvit-text">Profile</Text>
-                {!isEditing ? (
-                    <TouchableOpacity onPress={handleEdit} className="p-2">
-                        <Edit3 size={22} color="#B54CFF" />
+            <View className="flex-row items-center justify-between px-6 h-16 w-full">
+                <View className="flex-row items-center space-x-4">
+                    <TouchableOpacity className="p-2 -ml-2 rounded-full active:scale-90" style={{ backgroundColor: 'rgba(99, 70, 205, 0.1)' }}>
+                        <Menu color="#6346cd" size={24} />
                     </TouchableOpacity>
-                ) : (
-                    <View className="flex-row items-center">
-                        <TouchableOpacity onPress={handleCancel} className="p-2 mr-2">
-                            <X size={22} color="#EF4444" />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleSave} disabled={loading} className="p-2">
-                            {loading ? (
-                                <ActivityIndicator size="small" color="#22C55E" />
-                            ) : (
-                                <Check size={22} color="#22C55E" />
-                            )}
-                        </TouchableOpacity>
+                    <Text className="text-2xl font-extrabold text-primary tracking-tighter" style={{ fontFamily: 'Outfit_700Bold' }}>Divvit</Text>
+                </View>
+                <View className="flex-row items-center">
+                    <View className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center overflow-hidden border-2" style={{ borderColor: 'rgba(75, 41, 180, 0.2)' }}>
+                        {profile?.avatar_url ? (
+                            <Image source={{ uri: profile.avatar_url }} className="w-full h-full" resizeMode="cover" />
+                        ) : (
+                            <Text className="text-white font-bold text-sm">{initials}</Text>
+                        )}
                     </View>
-                )}
+                </View>
             </View>
 
             <ScrollView
-                className="flex-1"
+                className="flex-1 px-6 pt-4"
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#B54CFF" />
                 }
             >
-                {/* Avatar Section */}
-                <View className="items-center py-8">
-                    <View
-                        className="w-24 h-24 rounded-full items-center justify-center mb-4"
-                        style={{
-                            backgroundColor: '#B54CFF',
-                            shadowColor: '#B54CFF',
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 8,
-                            elevation: 5,
-                        }}
-                    >
-                        <Text className="text-white text-3xl font-bold">{initials}</Text>
-                    </View>
-                    <Text className="text-xl font-heading font-bold text-divvit-text">{displayName}</Text>
-                    <Text className="text-divvit-muted font-body">@{username}</Text>
-                </View>
-
-                {/* Info Card */}
-                <View className="mx-6 mb-6">
-                    <View
-                        className="bg-white rounded-2xl p-5 border border-gray-100"
-                        style={{
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.05,
-                            shadowRadius: 8,
-                            elevation: 2,
-                        }}
-                    >
-                        <Text className="text-sm font-heading font-bold text-divvit-text mb-4">
-                            Contact Info
-                        </Text>
-
-                        {/* Email (Read-only) */}
-                        <View className="mb-4">
-                            <Text className="text-xs text-divvit-muted font-body mb-1">Email</Text>
-                            <Text className="text-divvit-text font-body">
-                                {user?.email || 'No email set'}
-                            </Text>
-                        </View>
-
-                        {/* Phone */}
-                        <View className="mb-4">
-                            <Text className="text-xs text-divvit-muted font-body mb-1">Phone</Text>
+                <View className="max-w-2xl mx-auto w-full">
+                    {/* Profile Header Section */}
+                    <View className="mb-10 items-center">
+                        <View className="relative mb-6">
+                            <View 
+                                className="w-32 h-32 rounded-3xl overflow-hidden shadow-xl border-4 border-surface-container-lowest"
+                                style={{
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 10 },
+                                    shadowOpacity: 0.1,
+                                    shadowRadius: 15,
+                                    elevation: 10,
+                                    transform: [{ rotate: '3deg' }]
+                                }}
+                            >
+                                {profile?.avatar_url ? (
+                                    <Image source={{ uri: profile.avatar_url }} className="w-full h-full" resizeMode="cover" />
+                                ) : (
+                                    <View className="w-full h-full bg-primary items-center justify-center">
+                                        <Text className="text-white text-4xl font-bold">{initials}</Text>
+                                    </View>
+                                )}
+                            </View>
+                            
                             {isEditing ? (
-                                <TextInput
-                                    className="text-divvit-text font-body text-base bg-divvit-input-bg border border-divvit-input-border rounded-xl h-10 px-3"
-                                    placeholder="Add phone number"
-                                    placeholderTextColor="#9CA3AF"
-                                    value={phone}
-                                    onChangeText={setPhone}
-                                    keyboardType="phone-pad"
-                                />
+                                <View className="absolute -bottom-2 -right-12 flex-row space-x-2">
+                                    <TouchableOpacity 
+                                        onPress={handleCancel}
+                                        className="bg-error w-10 h-10 rounded-xl items-center justify-center shadow-lg active:scale-95"
+                                        disabled={loading}
+                                    >
+                                        <X color="#FFFFFF" size={20} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        onPress={handleSave}
+                                        className="bg-[#22C55E] w-10 h-10 rounded-xl items-center justify-center shadow-lg active:scale-95"
+                                        disabled={loading}
+                                    >
+                                        {loading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Check color="#FFFFFF" size={20} />}
+                                    </TouchableOpacity>
+                                </View>
                             ) : (
-                                <Text className="text-divvit-text font-body">
-                                    {phone || 'Not set'}
-                                </Text>
+                                <TouchableOpacity 
+                                    onPress={handleEdit}
+                                    className="absolute -bottom-2 -right-2 bg-primary w-10 h-10 rounded-xl items-center justify-center shadow-lg active:scale-95"
+                                >
+                                    <Edit3 color="#FFFFFF" size={20} />
+                                </TouchableOpacity>
                             )}
                         </View>
-
-                        {/* Country (Read-only) */}
-                        {profile?.country && (
-                            <View>
-                                <Text className="text-xs text-divvit-muted font-body mb-1">Country</Text>
-                                <Text className="text-divvit-text font-body">{profile.country}</Text>
-                            </View>
-                        )}
+                        <Text className="text-3xl font-extrabold tracking-tight text-on-surface">{displayName}</Text>
+                        <Text className="text-on-surface-variant font-medium mt-1 uppercase tracking-widest text-[11px]">Premium Member since 2023</Text>
                     </View>
-                </View>
 
-                {/* Payment Accounts */}
-                <View className="mx-6 mb-6">
-                    <View
-                        className="bg-white rounded-2xl p-5 border border-gray-100"
-                        style={{
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.05,
-                            shadowRadius: 8,
-                            elevation: 2,
-                        }}
-                    >
-                        <Text className="text-sm font-heading font-bold text-divvit-text mb-4">
-                            Payment Accounts
-                        </Text>
+                    {/* Profile Bento Grid */}
+                    <View className="flex-col pb-8">
+                        <ContactInfoCard
+                            isEditing={isEditing}
+                            email={user?.email || 'No email set'}
+                            phone={phone}
+                            setPhone={setPhone}
+                            country={profile?.country || 'United States'}
+                        />
+                        
+                        <PaymentAccountsCard
+                            isEditing={isEditing}
+                            venmoHandle={venmoHandle}
+                            setVenmoHandle={setVenmoHandle}
+                            cashappHandle={cashappHandle}
+                            setCashappHandle={setCashappHandle}
+                        />
+                        
+                        <QuickStatsCard totalSavings="$2,450.80" />
 
-                        {/* Venmo */}
-                        <View className="flex-row items-center mb-4">
-                            <View
-                                className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                                style={{ backgroundColor: '#008CFF' }}
+                        {/* Logout Action */}
+                        <View className="mt-8 mb-12">
+                            <TouchableOpacity 
+                                onPress={handleLogout}
+                                className="w-full flex-row items-center justify-center py-4 rounded-2xl active:scale-95"
+                                style={{ backgroundColor: 'rgba(186, 26, 26, 0.05)' }}
                             >
-                                <Text className="text-white font-bold">V</Text>
-                            </View>
-                            <View className="flex-1">
-                                <Text className="text-xs text-divvit-muted font-body">Venmo</Text>
-                                {isEditing ? (
-                                    <View className="flex-row items-center mt-1">
-                                        <Text className="text-divvit-muted mr-1">@</Text>
-                                        <TextInput
-                                            className="flex-1 text-divvit-text font-body bg-divvit-input-bg border border-divvit-input-border rounded-xl h-9 px-2"
-                                            placeholder="venmo_handle"
-                                            placeholderTextColor="#9CA3AF"
-                                            value={venmoHandle}
-                                            onChangeText={setVenmoHandle}
-                                            autoCapitalize="none"
-                                        />
-                                    </View>
-                                ) : (
-                                    <Text className="text-divvit-text font-body">
-                                        {venmoHandle ? `@${venmoHandle}` : 'Not connected'}
-                                    </Text>
-                                )}
-                            </View>
+                                <LogOut color="#ba1a1a" size={20} />
+                                <Text className="text-error font-bold ml-2">Log Out</Text>
+                            </TouchableOpacity>
                         </View>
 
-                        {/* Cash App */}
-                        <View className="flex-row items-center">
-                            <View
-                                className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                                style={{ backgroundColor: '#00D632' }}
-                            >
-                                <DollarSign size={18} color="#FFFFFF" strokeWidth={3} />
-                            </View>
-                            <View className="flex-1">
-                                <Text className="text-xs text-divvit-muted font-body">Cash App</Text>
-                                {isEditing ? (
-                                    <View className="flex-row items-center mt-1">
-                                        <Text className="text-divvit-muted mr-1">$</Text>
-                                        <TextInput
-                                            className="flex-1 text-divvit-text font-body bg-divvit-input-bg border border-divvit-input-border rounded-xl h-9 px-2"
-                                            placeholder="cashtag"
-                                            placeholderTextColor="#9CA3AF"
-                                            value={cashappHandle}
-                                            onChangeText={setCashappHandle}
-                                            autoCapitalize="none"
-                                        />
-                                    </View>
-                                ) : (
-                                    <Text className="text-divvit-text font-body">
-                                        {cashappHandle ? `$${cashappHandle}` : 'Not connected'}
-                                    </Text>
-                                )}
-                            </View>
+                        {/* App Version */}
+                        <View className="items-center pb-8 mt-4">
+                            <Text className="text-on-surface-variant text-xs opacity-50 font-bold">Divvit v2.0.0</Text>
                         </View>
                     </View>
-                </View>
-
-                {/* Log Out Button */}
-                <View className="mx-6 mb-8">
-                    <TouchableOpacity
-                        onPress={handleLogout}
-                        className="flex-row items-center justify-center h-14 rounded-2xl border border-red-200 bg-red-50"
-                        activeOpacity={0.7}
-                    >
-                        <LogOut size={20} color="#EF4444" />
-                        <Text className="text-red-500 font-bold ml-2">Log Out</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* App Version */}
-                <View className="items-center pb-8">
-                    <Text className="text-divvit-muted text-xs">Divvit v1.0.0</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>

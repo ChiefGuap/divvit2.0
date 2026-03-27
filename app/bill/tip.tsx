@@ -1,9 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Keyboard } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
+
+// Import our new components
+import TotalsCard from '../../components/bill/tip/TotalsCard';
+import ContextCard from '../../components/bill/tip/ContextCard';
+import TipSelection from '../../components/bill/tip/TipSelection';
+import FinalCalculationSurface from '../../components/bill/tip/FinalCalculationSurface';
 
 // --- Types ---
 type User = {
@@ -20,7 +26,7 @@ type BillItem = {
     price: number;
 };
 
-// Tip percentage options matching beta tester feedback
+// Tip percentage options matching matching new design and beta tester feedback
 const TIP_PERCENTAGES = [
     { value: 0.15, label: '15%' },
     { value: 0.18, label: '18%' },
@@ -43,14 +49,13 @@ export default function TipScreen() {
         scannedTip: string;
     }>();
 
-    // Parse incoming data - SUBTOTAL FIX: Use subtotal passed from SplitBillScreen, DO NOT recalculate
+    // Parse incoming data
     const { items, subtotal, tax } = useMemo((): { items: BillItem[]; subtotal: number; tax: number } => {
         if (billData) {
             try {
                 const parsed = JSON.parse(billData);
                 return {
                     items: parsed.items || [],
-                    // subtotal is passed directly from SplitBillScreen to ensure consistency
                     subtotal: Number(parsed.subtotal) || 0,
                     tax: Number(parsed.tax) || 0
                 };
@@ -92,6 +97,14 @@ export default function TipScreen() {
     const [selectedPercentage, setSelectedPercentage] = useState<number | null>(null);
     const [customTip, setCustomTip] = useState('');
     const [hasAutoSkipped, setHasAutoSkipped] = useState(false);
+    
+    // Defaulting base to pre since toggle is removed in new design
+    // Keeping state to avoid breaking Logic
+    const [tipBase, setTipBase] = useState<'pre' | 'post'>('pre');
+    const [isScannedTipActive, setIsScannedTipActive] = useState(false);
+
+    // The base amount used for percentage tip calculations
+    const tipBaseAmount = tipBase === 'pre' ? subtotal : subtotal + tax;
 
     // Pre-fill from scanned tip on mount, and auto-skip to checkout if tip was already on receipt
     useEffect(() => {
@@ -100,7 +113,7 @@ export default function TipScreen() {
 
             // Check if it matches one of our percentage options (within 1% tolerance)
             const matchingPercentage = TIP_PERCENTAGES.find(
-                p => Math.abs(p.value - tipPercentage) < 0.01
+                (p: {value: number, label: string}) => Math.abs(p.value - tipPercentage) < 0.01
             );
 
             if (matchingPercentage) {
@@ -110,8 +123,9 @@ export default function TipScreen() {
                 setCustomTip(scannedTip.toFixed(2));
             }
 
+            setIsScannedTipActive(true);
+
             // Auto-skip to checkout since tip was already on the receipt
-            // Use a small delay so user briefly sees the pre-filled tip
             if (!hasAutoSkipped) {
                 setHasAutoSkipped(true);
                 setTimeout(() => {
@@ -128,7 +142,7 @@ export default function TipScreen() {
     const handleAutoSkipToCheckout = (tipValue: number) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        const totalWithTip = subtotal + tipValue;
+        const totalWithTip = subtotal + tax + tipValue;
 
         // Distribute tip proportionally to items
         const itemsWithTip = items.map((item: BillItem) => {
@@ -145,7 +159,7 @@ export default function TipScreen() {
         const userTotals: Record<string, number> = {};
         users.forEach(u => userTotals[u.id] = 0);
 
-        Object.entries(assignments).forEach(([itemId, userIds]) => {
+        Object.entries(assignments as Record<string, string[]>).forEach(([itemId, userIds]: [string, string[]]) => {
             const item = itemsWithTip.find((i: any) => i.id === itemId);
             if (item && Array.isArray(userIds) && userIds.length > 0) {
                 const costPerUser = (item.price + item.share_of_tip) / userIds.length;
@@ -182,12 +196,13 @@ export default function TipScreen() {
             return Number(customTip) || 0;
         }
         if (selectedPercentage) {
-            return subtotal * selectedPercentage;
+            return tipBaseAmount * selectedPercentage;
         }
         return 0;
-    }, [noTip, customTip, selectedPercentage, subtotal]);
+    }, [noTip, customTip, selectedPercentage, tipBaseAmount]);
 
-    const total = subtotal + tipAmount;
+    // TOTAL FIX: Include tax in the grand total
+    const total = subtotal + tax + tipAmount;
 
     // Handlers
     const handlePercentageSelect = (percentage: number) => {
@@ -195,6 +210,7 @@ export default function TipScreen() {
         Haptics.selectionAsync();
         setSelectedPercentage(percentage);
         setCustomTip(''); // Clear custom when selecting percentage
+        setIsScannedTipActive(false); // User manually chose, clear scanned badge
     };
 
     const handleCustomTipChange = (text: string) => {
@@ -204,6 +220,7 @@ export default function TipScreen() {
         if (cleaned) {
             setSelectedPercentage(null); // Clear percentage when typing custom
         }
+        setIsScannedTipActive(false); // User manually typed, clear scanned badge
     };
 
     const handleNoTipToggle = () => {
@@ -213,8 +230,9 @@ export default function TipScreen() {
         if (newNoTip) {
             setSelectedPercentage(null);
             setCustomTip('');
+            setIsScannedTipActive(false);
         } else {
-            setSelectedPercentage(0.20); // Default back to 20%
+            setSelectedPercentage(0.18); // Default back to 18% as per design
         }
     };
 
@@ -228,7 +246,7 @@ export default function TipScreen() {
                 : 0;
             return {
                 ...item,
-                share_of_tip: Math.round(tipShare * 100) / 100 // Round to 2 decimals
+                share_of_tip: Math.round(tipShare * 100) / 100
             };
         });
 
@@ -236,7 +254,7 @@ export default function TipScreen() {
         const userTotals: Record<string, number> = {};
         users.forEach(u => userTotals[u.id] = 0);
 
-        Object.entries(assignments).forEach(([itemId, userIds]) => {
+        Object.entries(assignments as Record<string, string[]>).forEach(([itemId, userIds]: [string, string[]]) => {
             const item = itemsWithTip.find((i: any) => i.id === itemId);
             if (item && Array.isArray(userIds) && userIds.length > 0) {
                 const costPerUser = (item.price + item.share_of_tip) / userIds.length;
@@ -252,7 +270,7 @@ export default function TipScreen() {
         router.push({
             pathname: '/bill/checkout' as any,
             params: {
-                billId: billId, // Pass billId so checkout can update the bill
+                billId: billId,
                 billData: JSON.stringify({
                     items: itemsWithTip,
                     tip: tipAmount,
@@ -267,156 +285,96 @@ export default function TipScreen() {
         });
     };
 
+    // Determine tip label for FinalCalculationSurface
+    let tipLabel = noTip ? 'None' : 'Custom';
+    if (selectedPercentage) {
+        tipLabel = `${(selectedPercentage * 100).toFixed(0)}%`;
+    } else if (isScannedTipActive && !selectedPercentage && customTip) {
+        tipLabel = 'From receipt';
+    }
+
     return (
-        <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+        <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
             <Stack.Screen options={{ headerShown: false }} />
-
+            
             {/* Header */}
-            <View className="px-5 pt-2 pb-6">
-                <View className="flex-row items-center mb-8">
-                    <TouchableOpacity
-                        onPress={() => router.back()}
-                        className="p-2 -ml-2 rounded-full border border-gray-200 bg-white"
-                        style={{
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 1 },
-                            shadowOpacity: 0.05,
-                            shadowRadius: 2,
-                            elevation: 1,
-                        }}
-                    >
-                        <ArrowLeft color="#111827" size={20} />
+            <View className="flex-row items-center justify-between px-6 h-16 w-full z-50">
+                <TouchableOpacity 
+                    onPress={() => router.back()}
+                    className="w-10 h-10 items-center justify-center rounded-full hover:bg-primary-container/10"
+                >
+                    <ArrowLeft color="#6346cd" size={24} />
+                </TouchableOpacity>
+                <Text className="font-heading font-extrabold tracking-tighter text-2xl text-primary">Divvit</Text>
+                
+                {/* Current User Avatar Placeholder */}
+                <View className="w-10 h-10 rounded-full overflow-hidden bg-surface-container border-2 border-primary/20">
+                     <View className="w-full h-full bg-primary/10 items-center justify-center">
+                         <Text className="text-primary font-bold text-xs font-heading">Me</Text>
+                     </View>
+                </View>
+            </View>
+
+            <ScrollView 
+                className="flex-1 px-6 mx-auto w-full max-w-2xl"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100, paddingTop: 16 }}
+                keyboardShouldPersistTaps="handled"
+            >
+                {/* Editorial Header */}
+                <View className="mb-10">
+                    <Text className="text-[11px] font-heading font-bold uppercase tracking-widest text-primary mb-2">Final Review</Text>
+                    <Text className="text-3xl font-heading font-extrabold tracking-tight text-on-surface">Payment Summary</Text>
+                    <Text className="text-on-surface-variant font-body mt-2">Review your split and choose a tip to complete the transaction.</Text>
+                </View>
+
+                {/* Bento Layout */}
+                <View className="flex-col md:flex-row mb-3">
+                    <TotalsCard 
+                        subtotal={subtotal} 
+                        tax={tax} 
+                        dueNow={subtotal + tax} 
+                    />
+                    <ContextCard 
+                        restaurantName="Local Restaurant" // Handled properly on backend generally but visually satisfying here
+                        contextDescription="Bill Split" 
+                        users={users} 
+                    />
+                </View>
+
+                {/* No Tip / Settings Toggle */}
+                <View className="flex-row items-center justify-between mb-2 px-2">
+                    <TouchableOpacity onPress={handleNoTipToggle} className="flex-row items-center">
+                        <View className={`w-5 h-5 rounded border-2 items-center justify-center mr-2 ${noTip ? 'bg-primary border-primary' : 'border-gray-300'}`}>
+                           {noTip && <View className="w-2.5 h-2.5 bg-white rounded-sm" />}
+                        </View>
+                        <Text className="text-sm font-medium text-on-surface">No Tip</Text>
                     </TouchableOpacity>
-                    <Text className="ml-4 text-xl font-heading font-bold text-divvit-text">Tip</Text>
+                    <TouchableOpacity onPress={() => setTipBase(tipBase === 'pre' ? 'post' : 'pre')} disabled={noTip} className="flex-row items-center">
+                         <Text className="text-xs text-on-surface-variant opacity-60">
+                             Base: {tipBase === 'pre' ? 'Pre-tax' : 'Post-tax'}
+                         </Text>
+                    </TouchableOpacity>
                 </View>
 
-                {/* Subtotal Display */}
-                <View className="bg-gray-50 p-5 rounded-3xl border border-gray-100 mb-6">
-                    <View className="flex-row justify-between items-center">
-                        <Text className="text-divvit-muted font-body text-sm uppercase tracking-wider">Subtotal</Text>
-                        <Text className="text-2xl font-heading font-bold text-divvit-text">
-                            ${subtotal.toFixed(2)}
-                        </Text>
-                    </View>
-                </View>
+                <TipSelection
+                    tipBaseAmount={tipBaseAmount}
+                    selectedPercentage={selectedPercentage}
+                    customTip={customTip}
+                    noTip={noTip}
+                    onSelectPercentage={handlePercentageSelect}
+                    onCustomChange={handleCustomTipChange}
+                    isScannedTipActive={isScannedTipActive}
+                    tipPercentages={TIP_PERCENTAGES}
+                />
 
-                {/* No Tip Checkbox */}
-                <TouchableOpacity
-                    onPress={handleNoTipToggle}
-                    activeOpacity={0.7}
-                    className="flex-row items-center mb-6"
-                >
-                    <View
-                        className={`w-6 h-6 rounded-md border-2 items-center justify-center mr-3 ${noTip ? 'bg-divvit-secondary border-divvit-secondary' : 'border-gray-300'
-                            }`}
-                    >
-                        {noTip && <Check size={14} color="white" strokeWidth={3} />}
-                    </View>
-                    <Text className="font-body text-base text-divvit-text">No Tip</Text>
-                </TouchableOpacity>
-
-                {/* Percentage Buttons */}
-                <View
-                    className="flex-row justify-between mb-6"
-                    style={{ opacity: noTip ? 0.4 : 1 }}
-                >
-                    {TIP_PERCENTAGES.map((tip) => (
-                        <TouchableOpacity
-                            key={tip.value}
-                            onPress={() => handlePercentageSelect(tip.value)}
-                            disabled={noTip}
-                            activeOpacity={0.7}
-                            className={`flex-1 mx-1 py-4 rounded-2xl items-center justify-center border-2 ${selectedPercentage === tip.value && !noTip
-                                ? 'bg-divvit-secondary border-divvit-secondary'
-                                : 'bg-white border-gray-200'
-                                }`}
-                            style={{
-                                shadowColor: selectedPercentage === tip.value ? '#B54CFF' : '#000',
-                                shadowOffset: { width: 0, height: 2 },
-                                shadowOpacity: selectedPercentage === tip.value ? 0.3 : 0.05,
-                                shadowRadius: 8,
-                                elevation: selectedPercentage === tip.value ? 5 : 1,
-                            }}
-                        >
-                            <Text
-                                className={`font-heading text-xl font-bold ${selectedPercentage === tip.value && !noTip ? 'text-white' : 'text-divvit-text'
-                                    }`}
-                            >
-                                {tip.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* Custom Tip Input */}
-                <View
-                    className="mb-8"
-                    style={{ opacity: noTip ? 0.4 : 1 }}
-                >
-                    <View
-                        className={`flex-row items-center bg-gray-50 rounded-2xl px-5 py-4 border-2 ${customTip && !noTip ? 'border-divvit-secondary' : 'border-gray-100'
-                            }`}
-                    >
-                        <Text className="text-divvit-muted font-heading text-xl mr-2">$</Text>
-                        <TextInput
-                            value={customTip}
-                            onChangeText={handleCustomTipChange}
-                            placeholder="Custom"
-                            placeholderTextColor="#9CA3AF"
-                            keyboardType="decimal-pad"
-                            editable={!noTip}
-                            className="flex-1 font-heading text-xl text-divvit-text"
-                        />
-                    </View>
-                </View>
-
-                {/* Tip Amount Display */}
-                <View
-                    className="bg-white p-5 rounded-3xl border border-gray-100 mb-4"
-                    style={{
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.05,
-                        shadowRadius: 8,
-                        elevation: 2,
-                    }}
-                >
-                    <View className="flex-row justify-between items-center mb-3">
-                        <Text className="text-divvit-muted font-body text-sm">Tip Amount</Text>
-                        <Text className="text-xl font-heading font-bold text-divvit-text">
-                            ${tipAmount.toFixed(2)}
-                        </Text>
-                    </View>
-                    <View className="h-px bg-gray-100 my-2" />
-                    <View className="flex-row justify-between items-center">
-                        <Text className="text-divvit-text font-heading font-bold text-lg">Total</Text>
-                        <Text className="text-2xl font-heading font-bold text-divvit-secondary">
-                            ${total.toFixed(2)}
-                        </Text>
-                    </View>
-                </View>
-            </View>
-
-            {/* Continue Button */}
-            <View className="absolute bottom-0 left-0 right-0 px-5 pb-10 pt-4 bg-white">
-                <TouchableOpacity
-                    onPress={handleContinue}
-                    activeOpacity={0.85}
-                    className="bg-divvit-secondary py-4 px-6 rounded-2xl flex-row items-center justify-center"
-                    style={{
-                        shadowColor: '#B54CFF',
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.4,
-                        shadowRadius: 16,
-                        elevation: 10,
-                    }}
-                >
-                    <Text className="text-white font-heading font-bold text-lg mr-2">
-                        Continue
-                    </Text>
-                    <ArrowRight size={20} color="white" strokeWidth={2.5} />
-                </TouchableOpacity>
-            </View>
+                <FinalCalculationSurface 
+                    tipLabel={tipLabel}
+                    tipAmount={tipAmount}
+                    total={total}
+                    onContinue={handleContinue}
+                />
+            </ScrollView>
         </SafeAreaView>
     );
 }
