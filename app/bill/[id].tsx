@@ -163,6 +163,12 @@ export default function BillEditorScreen() {
                 const tipValue = bill.scanned_tip ?? details.scannedTip ?? 0;
                 if (tipValue) setLoadedScannedTip(tipValue);
 
+                const taxValue = Number(details.tax) || 0;
+                if (taxValue) {
+                    setTaxAmount(taxValue);
+                    setTaxInput(taxValue.toFixed(2));
+                }
+
                 const participants = bill.bill_participants || [];
                 if (participants.length > 0) {
                     const usersFromDB = participants.map((p: any) => ({
@@ -185,8 +191,9 @@ export default function BillEditorScreen() {
                     setLoadedUsers(details.users);
                     if (details.users.length > 0) setSelectedUserId(details.users[0].id);
                 }
-            } catch (err) { } 
-            finally {
+            } catch (err: any) {
+                console.error('BillEditor: fetchBillData error:', err?.message || err);
+            } finally {
                 setIsLoadingDraft(false);
                 setHasFetchedFromDB(true);
             }

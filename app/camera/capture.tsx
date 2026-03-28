@@ -110,13 +110,12 @@ export default function CaptureScreen() {
                     body: JSON.stringify({
                         host_id: user.id,
                         total_amount: subtotal,
-                        tax,
-                        subtotal,
                         status: 'draft',
                         details: {
                             items: result.items,
                             scannedTip: result.scannedTip || 0,
                             tax,
+                            subtotal,
                         }
                     }),
                 }

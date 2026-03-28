@@ -252,7 +252,7 @@ export default function PartyScreen() {
                     'Content-Type': 'application/json',
                     'Prefer': 'return=minimal',
                 },
-                body: JSON.stringify({ status: 'active', items: itemsToSave }),
+                body: JSON.stringify({ status: 'active' }),
             });
             if (!response.ok) {
                 console.error('PartyScreen: Failed to update bill status:', response.status);

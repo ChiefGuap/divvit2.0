@@ -420,7 +420,7 @@ export default function HistoryScreen() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top']}>
-            <Header />
+            <DivvitHeader />
             <FlatList
                 ref={flatListRef}
                 data={bills}
