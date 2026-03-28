@@ -52,6 +52,7 @@ export default function BillEditorScreen() {
     const { id, billData, users: usersParam, fromParty } = useLocalSearchParams<{ id: string; billData: string; users: string; fromParty: string }>();
     const { user, session } = useAuth();
     const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
+    const channelRef = useRef<any>(null);
 
     // Debug logging for deep link verification
     console.log('BillEditor: Opened with ID:', id);
@@ -194,6 +195,30 @@ export default function BillEditorScreen() {
         fetchBillData();
     }, [isExistingDraft, isFromParty, id, user, session]);
 
+    // Real-time assignment sync via Supabase broadcast (party mode only)
+    useEffect(() => {
+        if (!id || !isFromParty) return;
+
+        const channel = supabase
+            .channel(`bill-session-${id}`)
+            .on('broadcast', { event: 'assignments-updated' }, ({ payload }) => {
+                if (payload?.assignments) {
+                    console.log('BillEditor: Received remote assignment update');
+                    setAssignments(payload.assignments);
+                }
+            })
+            .subscribe((status) => {
+                console.log('BillEditor: Broadcast channel status', status);
+            });
+
+        channelRef.current = channel;
+
+        return () => {
+            supabase.removeChannel(channel);
+            channelRef.current = null;
+        };
+    }, [id, isFromParty]);
+
     const activeUsers = [
         ...((isExistingDraft || isFromParty) ? loadedUsers : initialUsers),
         ...additionalUsers,
@@ -266,19 +291,33 @@ export default function BillEditorScreen() {
 
     const handleAssignItem = (itemId: string) => {
         if (!selectedUserId) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); return; }
-        setAssignments(prev => {
-            const currentAssignees = prev[itemId] || [];
-            let newAssignees: string[];
-            if (currentAssignees.includes(selectedUserId)) {
-                newAssignees = currentAssignees.filter(id => id !== selectedUserId);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            } else {
-                newAssignees = [...currentAssignees, selectedUserId];
-                Haptics.selectionAsync();
-            }
-            if (newAssignees.length === 0) { const newState = { ...prev }; delete newState[itemId]; return newState; }
-            return { ...prev, [itemId]: newAssignees };
-        });
+
+        // Compute the new assignments eagerly (not inside the updater) so we can broadcast them
+        const currentAssignees = assignments[itemId] || [];
+        let newAssignees: string[];
+        if (currentAssignees.includes(selectedUserId)) {
+            newAssignees = currentAssignees.filter(uid => uid !== selectedUserId);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        } else {
+            newAssignees = [...currentAssignees, selectedUserId];
+            Haptics.selectionAsync();
+        }
+
+        const newAssignments: Record<string, string[]> =
+            newAssignees.length === 0
+                ? (() => { const n = { ...assignments }; delete n[itemId]; return n; })()
+                : { ...assignments, [itemId]: newAssignees };
+
+        setAssignments(newAssignments);
+
+        // Broadcast the full updated assignments to all other participants in real time
+        if (isFromParty && channelRef.current) {
+            channelRef.current.send({
+                type: 'broadcast',
+                event: 'assignments-updated',
+                payload: { assignments: newAssignments },
+            });
+        }
     };
 
     const handleSelectUser = (userId: string) => {

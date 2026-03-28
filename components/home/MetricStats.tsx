@@ -1,6 +1,13 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { TrendingUp, Clock } from 'lucide-react-native';
+import { TrendingUp } from 'lucide-react-native';
+
+// TODO: fetch from Supabase rewards points
+const rewardName = "$10 Gift Card";
+const currentPoints = 578;
+const pointsToNextReward = 422;
+const totalPointsNeeded = 1000;
+const progressPercent = currentPoints / totalPointsNeeded;
 
 interface MetricStatsProps {
   totalSplit: string; // pre-formatted currency string e.g., "$2,976"
@@ -11,7 +18,7 @@ export function MetricStats({ totalSplit, minutesSaved }: MetricStatsProps) {
   return (
     <View className="flex-row gap-4 mb-8 items-stretch">
       {/* Total Split Card — amount bottom-aligned via justify-between */}
-      <View className="flex-[0.58] bg-primary-container rounded-[2rem] p-6 shadow-md shadow-primary/20 min-h-[180px] justify-between">
+      <View className="flex-1 bg-primary-container rounded-[2rem] p-6 shadow-md shadow-primary/20 min-h-[180px] justify-between">
         <View className="flex-row justify-between items-start">
           <Text className="text-sm font-heading font-bold text-white uppercase tracking-widest opacity-80">Total Split</Text>
           <TrendingUp size={24} color="#ffffff" />
@@ -22,14 +29,72 @@ export function MetricStats({ totalSplit, minutesSaved }: MetricStatsProps) {
         </View>
       </View>
 
-      {/* Minutes Saved Card — icon + text vertically centered */}
-      <View className="flex-[0.42] bg-surface-container-high rounded-[2rem] p-6 min-h-[180px] items-center justify-center gap-4">
-        <View className="w-12 h-12 bg-white rounded-2xl items-center justify-center" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 1 }}>
-          <Clock size={24} color="#4b29b4" />
+      {/* My Rewards Card */}
+      <View
+        className="flex-1 rounded-[2rem] min-h-[180px] justify-between"
+        style={{
+          backgroundColor: '#ffffff',
+          padding: 16,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.07,
+          shadowRadius: 12,
+          elevation: 3,
+        }}
+      >
+        {/* A) Header label */}
+        <Text style={{
+          fontSize: 10,
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          letterSpacing: 1.5,
+          color: '#484554',
+          marginBottom: 4,
+        }}>
+          My Rewards
+        </Text>
+
+        {/* B) Current reward name */}
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '800',
+          color: '#141b2b',
+          marginBottom: 2,
+        }}>
+          {rewardName}
+        </Text>
+
+        {/* C) Points until next reward */}
+        <Text style={{
+          fontSize: 12,
+          fontWeight: '600',
+          color: '#4b29b4',
+          marginBottom: 10,
+        }}>
+          {pointsToNextReward} pts until next reward
+        </Text>
+
+        {/* D) Progress bar */}
+        <View style={{
+          height: 8,
+          borderRadius: 999,
+          backgroundColor: '#e1e8fd',
+          marginBottom: 8,
+          overflow: 'hidden',
+        }}>
+          <View style={{
+            height: 8,
+            borderRadius: 999,
+            backgroundColor: '#4b29b4',
+            width: `${progressPercent * 100}%`, // TODO: wire to Supabase rewards points
+          }} />
         </View>
-        <View className="items-center">
-          <Text className="text-2xl font-heading font-extrabold text-on-surface tracking-tight">{minutesSaved}m</Text>
-          <Text className="text-[10px] font-heading font-bold text-on-surface-variant uppercase tracking-wider">saved</Text>
+
+        {/* E) Points scale row */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 10, fontWeight: '600', color: '#484554' }}>0</Text>
+          <Text style={{ fontSize: 10, fontWeight: '800', color: '#141b2b' }}>{currentPoints}PTS</Text>
+          <Text style={{ fontSize: 10, fontWeight: '600', color: '#484554' }}>{totalPointsNeeded}PTS</Text>
         </View>
       </View>
     </View>

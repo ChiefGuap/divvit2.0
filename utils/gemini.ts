@@ -15,15 +15,22 @@ export const parseReceiptWithGemini = async (imageUri: string) => {
         name: 'receipt.jpg',
     } as any);
 
-    // Deployed Google Cloud Run URL
-    const BACKEND_URL = "https://divvit-backend-899345323923.us-central1.run.app/api/v1/scan";
+    // Use EXPO_PUBLIC_API_URL for local dev/staging; fall back to Cloud Run in production
+    const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL
+        ? `${process.env.EXPO_PUBLIC_API_URL}/api/v1/scan`
+        : "https://divvit-backend-899345323923.us-central1.run.app/api/v1/scan";
 
-    // 60-second timeout — Gemini receipt parsing can take 15-30s
+    // 90-second timeout — Gemini receipt parsing can take 15-60s
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-        console.error('[Gemini] Request timed out after 60s');
+        console.error('[Gemini] Request timed out after 90s');
         controller.abort();
-    }, 60000);
+    }, 90000);
+
+    // Log every 10s so we know the request is still in flight
+    const progressInterval = setInterval(() => {
+        console.log('[Gemini] Still waiting for backend response...');
+    }, 10000);
 
     try {
         console.log('[Gemini] Sending POST to:', BACKEND_URL);
@@ -41,7 +48,8 @@ export const parseReceiptWithGemini = async (imageUri: string) => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Backend failed with status ${response.status}: ${errorText}`);
+            console.error('[Gemini] Backend error:', response.status, errorText);
+            throw new Error(`Backend error ${response.status}: ${errorText}`);
         }
 
         const data = await response.json();
@@ -57,6 +65,7 @@ export const parseReceiptWithGemini = async (imageUri: string) => {
         throw error;
     } finally {
         clearTimeout(timeoutId);
+        clearInterval(progressInterval);
     }
 };
 

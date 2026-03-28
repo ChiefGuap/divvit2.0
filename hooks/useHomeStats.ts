@@ -6,7 +6,7 @@ type Bill = {
     id: string;
     host_id: string;
     total_amount: number;
-    status: 'draft' | 'completed';
+    status: 'draft' | 'active' | 'settled' | 'completed' | 'paid' | 'closed';
     details: {
         items?: { id: string; name: string; price: number }[];
         users?: { id: string; name: string }[];
@@ -117,46 +117,49 @@ export function useHomeStats(): HomeStats {
         setError(null);
 
         try {
-            const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-            const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+            const [completedResult, draftsResult] = await Promise.all([
+                supabase
+                    .from('bills')
+                    .select('*')
+                    .eq('host_id', user.id)
+                    .in('status', ['settled', 'completed', 'paid', 'closed'])
+                    .order('created_at', { ascending: false }),
+                supabase
+                    .from('bills')
+                    .select('*')
+                    .eq('host_id', user.id)
+                    .eq('status', 'draft')
+                    .order('created_at', { ascending: false }),
+            ]);
 
-            // Fetch completed/settled bills - include all finished bill statuses
-            const completedResponse = await fetch(
-                `${supabaseUrl}/rest/v1/bills?host_id=eq.${user.id}&status=in.(settled,completed,paid,closed)&select=*&order=created_at.desc`,
-                {
-                    headers: {
-                        'apikey': supabaseKey!,
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'Content-Type': 'application/json',
-                    }
-                }
-            );
+            // Handle missing table gracefully (bills table not yet migrated)
+            const isMissingTable = (err: any) =>
+                err?.code === '42P01' || err?.code === 'PGRST200';
 
-            // Fetch draft bills
-            const draftsResponse = await fetch(
-                `${supabaseUrl}/rest/v1/bills?host_id=eq.${user.id}&status=eq.draft&select=*&order=created_at.desc`,
-                {
-                    headers: {
-                        'apikey': supabaseKey!,
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'Content-Type': 'application/json',
-                    }
-                }
-            );
-
-            if (!completedResponse.ok || !draftsResponse.ok) {
-                console.error('useHomeStats: Error fetching bills');
-                setError('Failed to fetch bills');
+            if (isMissingTable(completedResult.error) || isMissingTable(draftsResult.error)) {
+                console.warn('useHomeStats: bills table not found — migrations may not be applied');
+                setCompletedBills([]);
+                setDraftBills([]);
                 return;
             }
 
-            const completedData = await completedResponse.json();
-            const draftsData = await draftsResponse.json();
+            if (completedResult.error) {
+                console.error('useHomeStats: Error fetching completed bills —',
+                    completedResult.error.code, completedResult.error.message, completedResult.error.details);
+                setError('Failed to fetch completed bills');
+                return;
+            }
+            if (draftsResult.error) {
+                console.error('useHomeStats: Error fetching drafts —',
+                    draftsResult.error.code, draftsResult.error.message, draftsResult.error.details);
+                setError('Failed to fetch drafts');
+                return;
+            }
 
-            setCompletedBills(completedData || []);
-            setDraftBills(draftsData || []);
-        } catch (err) {
-            console.error('useHomeStats: Unexpected error:', err);
+            setCompletedBills(completedResult.data || []);
+            setDraftBills(draftsResult.data || []);
+        } catch (err: any) {
+            console.error('useHomeStats: Unexpected exception:', err?.message || err);
             setError('Failed to fetch bills');
         } finally {
             setIsFetching(false);

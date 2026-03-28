@@ -45,10 +45,15 @@ export default function PartyScreen() {
     const [partyName, setPartyName] = useState('Party Lobby');
 
     const hasRedirected = useRef(false);
+    const channelRef = useRef<any>(null);
+    const hostIdRef = useRef<string | null>(null);
 
     const isHost = user?.id === hostId;
     const deepLinkUrl = Linking.createURL(`/bill/${billId}`);
     console.log('Generated Join Link:', deepLinkUrl);
+
+    // Keep hostIdRef in sync so the broadcast handler (closure) always has the latest value
+    useEffect(() => { hostIdRef.current = hostId; }, [hostId]);
 
     useEffect(() => {
         if (!billId || !session) return;
@@ -92,13 +97,29 @@ export default function PartyScreen() {
                     setParticipants(prev => prev.filter(p => p.id !== removedId));
                 }
             )
+            .on(
+                'broadcast',
+                { event: 'session-started' },
+                () => {
+                    // Host navigates directly in handleStartSplitting; only guests act here
+                    if (user?.id === hostIdRef.current) return;
+                    if (hasRedirected.current) return;
+                    console.log('PartyScreen: Broadcast received — session started, navigating guest to editor');
+                    hasRedirected.current = true;
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    router.replace({ pathname: '/bill/[id]', params: { id: billId!, fromParty: 'true' } });
+                }
+            )
             .subscribe((status) => {
                 console.log('PartyScreen Realtime: Channel status', status);
             });
 
+        channelRef.current = channel;
+
         return () => {
             console.log('PartyScreen: Cleaning up Realtime subscription');
             supabase.removeChannel(channel);
+            channelRef.current = null;
         };
     }, [billId]);
 
@@ -214,7 +235,7 @@ export default function PartyScreen() {
         try {
             const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
             const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-            let itemsToSave = [];
+            let itemsToSave: any[] = [];
             if (billData) {
                 try {
                     const parsedBillData = JSON.parse(billData);
@@ -233,11 +254,20 @@ export default function PartyScreen() {
                 },
                 body: JSON.stringify({ status: 'active', items: itemsToSave }),
             });
-            if (!response.ok) console.error('PartyScreen: Failed to update bill status:', response.status);
-            else console.log('PartyScreen: Bill status updated to active');
+            if (!response.ok) {
+                console.error('PartyScreen: Failed to update bill status:', response.status);
+                Alert.alert('Error', 'Failed to start session. Please try again.');
+                return;
+            }
+            console.log('PartyScreen: Bill status updated to active');
+            // Broadcast to all guests so they navigate immediately (does not rely on postgres_changes RLS)
+            channelRef.current?.send({ type: 'broadcast', event: 'session-started', payload: {} });
         } catch (err) {
             console.error('PartyScreen: Error updating bill:', err);
+            Alert.alert('Error', 'Failed to start session. Please try again.');
+            return;
         }
+        // Host navigates after broadcast is sent
         router.push({
             pathname: '/bill/[id]',
             params: { id: billId, billData: billData, fromParty: 'true' },

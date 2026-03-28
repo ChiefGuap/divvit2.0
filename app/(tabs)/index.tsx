@@ -9,7 +9,7 @@ import { getInitials, getNextColor } from '../../types';
 import { useHomeStats } from '@/hooks/useHomeStats';
 import { useAuth } from '@/context/AuthContext';
 
-import { DashboardHeader } from '@/components/home/DashboardHeader';
+import DivvitHeader from '@/components/DivvitHeader';
 import { MetricStats } from '@/components/home/MetricStats';
 import { DashboardActions } from '@/components/home/DashboardActions';
 import { PromotionCard } from '@/components/home/PromotionCard';
@@ -272,7 +272,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <DashboardHeader />
+      <DivvitHeader />
       
       <ScrollView className="flex-1 px-6 pt-2" showsVerticalScrollIndicator={false}>
         

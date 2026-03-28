@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Utensils, Share2, CheckCircle } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
+import DivvitHeader from '@/components/DivvitHeader';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -391,16 +392,10 @@ export default function HistoryScreen() {
 
     const keyExtractor = useCallback((item: Bill) => item.id, []);
 
-    const Header = () => (
-        <View style={{ paddingHorizontal: 24, height: 56, justifyContent: 'center' }}>
-            <Text style={{ fontSize: 24, fontWeight: '900', color: '#4b29b4', letterSpacing: -0.5 }}>Divvit</Text>
-        </View>
-    );
-
     if (isAuthLoading || isLoading) {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top']}>
-                <Header />
+                <DivvitHeader />
                 <SkeletonCard />
             </SafeAreaView>
         );
@@ -417,7 +412,7 @@ export default function HistoryScreen() {
     if (bills.length === 0) {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top']}>
-                <Header />
+                <DivvitHeader />
                 <EmptyState />
             </SafeAreaView>
         );

@@ -234,12 +234,14 @@ function NavigationController() {
         router.replace("/(auth)/login");
       }
     } else if (!hasOnboarded) {
-      // Has session but hasn't completed onboarding
-      // This handles BOTH missing profile rows (trigger failed) AND incomplete onboarding
-      // The onboarding flow uses upsert to create/update the profile
-      if (!inOnboardingGroup) {
-        console.log('Navigation: Not onboarded, redirecting to onboarding');
-        router.replace("/onboarding");
+      // Has session but hasn't completed onboarding.
+      // Allowed screens: /(auth)/setup (Step 1) and anything in /onboarding/* (Steps 2+).
+      // Everyone else (/(tabs), /(auth)/login, /(auth)/signup, etc.) gets redirected
+      // to profile setup Step 1. This prevents the marketing splash loop.
+      const inSetupStep1 = inAuthGroup && segments[1] === 'setup';
+      if (!inOnboardingGroup && !inSetupStep1) {
+        console.log('Navigation: Not onboarded, redirecting to profile setup');
+        router.replace('/(auth)/setup');
       }
     } else {
       // Has session AND onboarded - can access main app

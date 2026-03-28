@@ -3,10 +3,18 @@ Divvit Backend - FastAPI Entry Point
 A stateless, containerized backend for receipt parsing and data processing.
 """
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.endpoints import receipts
+from app.core.config import settings
+
+if not settings.gemini_api_key:
+    raise RuntimeError(
+        "GEMINI_API_KEY is not set in backend/.env — receipt scanning will not work."
+    )
 
 app = FastAPI(
     title="Divvit Receipt API",
@@ -36,4 +44,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Detailed health check for Cloud Run."""
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "gemini_configured": bool(settings.gemini_api_key),
+    }

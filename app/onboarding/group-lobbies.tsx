@@ -17,7 +17,7 @@ export default function GroupLobbiesScreen() {
 
     const handleNext = async () => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        router.push('/onboarding/personal-info');
+        router.push('/onboarding/social-finance');
     };
 
     const handleSkip = async () => {

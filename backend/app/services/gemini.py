@@ -3,6 +3,7 @@ Gemini AI Service for receipt parsing.
 Handles communication with the Google Generative AI API.
 """
 
+import asyncio
 import io
 import json
 import os
@@ -67,20 +68,24 @@ Rules:
 """
 
         try:
-            # Generate response from Gemini using new SDK
-            response = self.client.models.generate_content(
+            # Generate response from Gemini using new SDK.
+            # client.models.generate_content is synchronous — run it in a thread
+            # so it doesn't block FastAPI's asyncio event loop.
+            contents = [
+                types.Content(
+                    parts=[
+                        types.Part.from_text(text=prompt),
+                        types.Part.from_bytes(
+                            data=image_data,
+                            mime_type=content_type,
+                        ),
+                    ]
+                )
+            ]
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
                 model=self.model_name,
-                contents=[
-                    types.Content(
-                        parts=[
-                            types.Part.from_text(text=prompt),
-                            types.Part.from_bytes(
-                                data=image_data,
-                                mime_type=content_type,
-                            ),
-                        ]
-                    )
-                ],
+                contents=contents,
             )
 
             # Parse the JSON response
@@ -93,6 +98,11 @@ Rules:
                 response_text = "\n".join(lines[1:-1])
 
             result = json.loads(response_text)
+
+            # Normalize snake_case key to camelCase so the frontend can read it
+            if "scanned_tip" in result:
+                result["scannedTip"] = result.pop("scanned_tip")
+
             return result
 
         except json.JSONDecodeError as e:

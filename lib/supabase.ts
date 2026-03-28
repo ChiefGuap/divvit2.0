@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-import { AppState, Platform, Linking } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import 'react-native-url-polyfill/auto';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
@@ -42,7 +42,7 @@ export const supabase = createClient(url, key, {
         storage: ExpoStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: true, // Enable automatic OAuth URL parsing
+        detectSessionInUrl: false, // Must be false for React Native — window.location doesn't exist
     },
 });
 
@@ -59,22 +59,6 @@ AppState.addEventListener('change', (state) => {
     }
 });
 
-// Handle deep links including OAuth callbacks
-Linking.addEventListener('url', async ({ url }) => {
-    console.log('Supabase: Incoming Deep Link:', url);
-
-    // Check if this is an OAuth callback with tokens
-    if (url.includes('#access_token=') || url.includes('?code=') || url.includes('auth/callback')) {
-        console.log('Supabase: OAuth callback detected, extracting session...');
-        try {
-            const { data, error } = await supabase.auth.getSession();
-            if (error) {
-                console.error('Supabase: Session extraction error:', error);
-            } else {
-                console.log('Supabase: Session extracted:', !!data.session);
-            }
-        } catch (e) {
-            console.error('Supabase: Error handling OAuth callback:', e);
-        }
-    }
-});
+// Deep link handling is done in app/_layout.tsx (DeepLinkHandler component)
+// which correctly extracts tokens from the URL hash and calls supabase.auth.setSession().
+// No duplicate listener needed here.

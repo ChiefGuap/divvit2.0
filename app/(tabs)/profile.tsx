@@ -13,9 +13,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { LogOut, Edit3, Check, X, Menu } from 'lucide-react-native';
+import { LogOut, Edit3, Check, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../context/AuthContext';
+import DivvitHeader from '@/components/DivvitHeader';
 import { getInitials } from '../../types';
 
 import ContactInfoCard from '../../components/profile/ContactInfoCard';
@@ -141,24 +142,7 @@ export default function ProfileScreen() {
         <SafeAreaView className="flex-1 bg-surface">
             <StatusBar style="dark" />
 
-            {/* Header */}
-            <View className="flex-row items-center justify-between px-6 h-16 w-full">
-                <View className="flex-row items-center space-x-4">
-                    <TouchableOpacity className="p-2 -ml-2 rounded-full active:scale-90" style={{ backgroundColor: 'rgba(99, 70, 205, 0.1)' }}>
-                        <Menu color="#6346cd" size={24} />
-                    </TouchableOpacity>
-                    <Text className="text-2xl font-extrabold text-primary tracking-tighter" style={{ fontFamily: 'Outfit_700Bold' }}>Divvit</Text>
-                </View>
-                <View className="flex-row items-center">
-                    <View className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center overflow-hidden border-2" style={{ borderColor: 'rgba(75, 41, 180, 0.2)' }}>
-                        {profile?.avatar_url ? (
-                            <Image source={{ uri: profile.avatar_url }} className="w-full h-full" resizeMode="cover" />
-                        ) : (
-                            <Text className="text-white font-bold text-sm">{initials}</Text>
-                        )}
-                    </View>
-                </View>
-            </View>
+            <DivvitHeader />
 
             <ScrollView
                 className="flex-1 px-6 pt-4"

@@ -91,10 +91,12 @@ export default function CaptureScreen() {
             const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
             const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-            // Calculate subtotal from items
-            const subtotal = result.items.reduce((sum: number, item: any) => sum + (Number(item.price) || 0), 0);
+            // Calculate subtotal from items (use Gemini's value if available, otherwise sum items)
+            const subtotal = result.subtotal ?? result.items.reduce((sum: number, item: any) => sum + (Number(item.price) || 0), 0);
+            const tax = result.tax || 0;
 
-            // Create the bill
+            // Create the bill — status:'draft' so party lobby works correctly;
+            // host presses "Start Splitting" to move it to 'active'.
             const billResponse = await fetch(
                 `${supabaseUrl}/rest/v1/bills`,
                 {
@@ -108,10 +110,13 @@ export default function CaptureScreen() {
                     body: JSON.stringify({
                         host_id: user.id,
                         total_amount: subtotal,
-                        status: 'active',
+                        tax,
+                        subtotal,
+                        status: 'draft',
                         details: {
                             items: result.items,
                             scannedTip: result.scannedTip || 0,
+                            tax,
                         }
                     }),
                 }

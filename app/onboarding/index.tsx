@@ -59,7 +59,7 @@ export default function SplashScreen() {
 
     const handleGetStarted = async () => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        router.push('/onboarding/personal-info');
+        router.push('/onboarding/group-lobbies');
     };
 
     const handleSignIn = async () => {

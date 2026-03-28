@@ -114,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (error) {
                     console.error('AuthContext: Session check error:', error);
+                    clearTimeout(timeoutId);
                     setSession(null);
                     setUser(null);
                     setProfile(null);
@@ -132,12 +133,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     const profileData = await fetchProfile(currentSession.user.id, currentSession.access_token);
 
                     if (mounted) {
+                        clearTimeout(timeoutId); // Cancel fallback — we have a real result
                         setProfile(profileData);
                         setHasProfile(!!profileData && !!profileData.username);
                         setHasOnboarded(!!profileData?.has_onboarded);
                         setIsLoading(false);
                     }
                 } else {
+                    clearTimeout(timeoutId);
                     setSession(null);
                     setUser(null);
                     setProfile(null);
@@ -148,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } catch (e) {
                 console.error('AuthContext: Initialization error:', e);
                 if (mounted) {
+                    clearTimeout(timeoutId);
                     setSession(null);
                     setUser(null);
                     setProfile(null);
