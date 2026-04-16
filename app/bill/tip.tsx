@@ -1,9 +1,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Keyboard } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Keyboard, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Users } from 'lucide-react-native';
+import { useAuth } from '../../context/AuthContext';
+import {
+    getBill,
+    getBillItems,
+    getParticipants,
+    updateBillStatus,
+    updateBillTip,
+    createPaymentRequests,
+    subscribeToBillStatus,
+    unsubscribeAll,
+} from '../../services/billService';
+import { BillItem as SyncBillItem, Participant } from '../../types';
 
 // Import our new components
 import TotalsCard from '../../components/bill/tip/TotalsCard';
@@ -35,22 +47,76 @@ const TIP_PERCENTAGES = [
 
 export default function TipScreen() {
     const router = useRouter();
+    const { user } = useAuth();
     const {
         billId,
         billData,
         users: usersParam,
         assignments: assignmentsParam,
-        scannedTip: scannedTipParam
+        scannedTip: scannedTipParam,
+        fromParty: fromPartyParam,
     } = useLocalSearchParams<{
         billId: string;
         billData: string;
         users: string;
         assignments: string;
         scannedTip: string;
+        fromParty: string;
     }>();
 
-    // Parse incoming data
+    const isFromParty = fromPartyParam === 'true';
+
+    // ─── Party mode state ───
+    const [partyBillItems, setPartyBillItems] = useState<SyncBillItem[]>([]);
+    const [partyParticipants, setPartyParticipants] = useState<Participant[]>([]);
+    const [partyTax, setPartyTax] = useState(0);
+    const [partySubtotal, setPartySubtotal] = useState(0);
+    const [hostId, setHostId] = useState<string | null>(null);
+    const [isPartyLoading, setIsPartyLoading] = useState(isFromParty);
+    const isHost = user?.id === hostId;
+
+    // Fetch bill data from Supabase for party mode
+    useEffect(() => {
+        if (!isFromParty || !billId) return;
+
+        const loadPartyData = async () => {
+            try {
+                const [bill, items, participants] = await Promise.all([
+                    getBill(billId),
+                    getBillItems(billId),
+                    getParticipants(billId),
+                ]);
+                setHostId(bill.host_id);
+                setPartyBillItems(items);
+                setPartyParticipants(participants);
+                setPartyTax(Number(bill.tax) || Number(bill.details?.tax) || 0);
+                setPartySubtotal(items.reduce((s: number, i: SyncBillItem) => s + i.price * i.quantity, 0));
+            } catch (err) {
+                console.error('TipScreen: Failed to load party data:', err);
+            } finally {
+                setIsPartyLoading(false);
+            }
+        };
+        loadPartyData();
+
+        // Guests: subscribe to status changes (host moves to payment)
+        const statusChannel = subscribeToBillStatus(billId, (newStatus) => {
+            if (newStatus === 'completed') {
+                router.replace({
+                    pathname: '/bill/payment' as any,
+                    params: { billId },
+                });
+            }
+        });
+
+        return () => unsubscribeAll([statusChannel]);
+    }, [isFromParty, billId]);
+
+    // Parse incoming data (standalone mode — from route params)
     const { items, subtotal, tax } = useMemo((): { items: BillItem[]; subtotal: number; tax: number } => {
+        if (isFromParty) {
+            return { items: [], subtotal: partySubtotal, tax: partyTax };
+        }
         if (billData) {
             try {
                 const parsed = JSON.parse(billData);
@@ -64,9 +130,18 @@ export default function TipScreen() {
             }
         }
         return { items: [], subtotal: 0, tax: 0 };
-    }, [billData]);
+    }, [billData, isFromParty, partySubtotal, partyTax]);
 
     const users: User[] = useMemo(() => {
+        if (isFromParty) {
+            return partyParticipants.map(p => ({
+                id: p.id,
+                name: p.name,
+                avatar: p.avatar_url || '',
+                color: p.color,
+                initials: p.initials,
+            }));
+        }
         if (usersParam) {
             try {
                 return JSON.parse(usersParam);
@@ -75,7 +150,7 @@ export default function TipScreen() {
             }
         }
         return [];
-    }, [usersParam]);
+    }, [usersParam, isFromParty, partyParticipants]);
 
     const assignments = useMemo(() => {
         if (assignmentsParam) {
@@ -236,9 +311,79 @@ export default function TipScreen() {
         }
     };
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+        // ─── Party mode: create payment requests, update bill, navigate to payment ───
+        if (isFromParty && isHost && billId) {
+            try {
+                // Fetch bill to get details.assignments (multi-assignment format)
+                // handleContinueToTip re-creates bill_items without assigned_to,
+                // so we must read assignments from bill.details JSONB
+                const billData = await getBill(billId);
+                const detailItems: any[] = billData.details?.items || [];
+                const detailAssignments: Record<string, string[]> = billData.details?.assignments || {};
+                const detailTax = Number(billData.details?.tax) || partyTax;
+                const detailSubtotal = detailItems.reduce(
+                    (sum: number, item: any) => sum + (Number(item.price) || 0), 0
+                );
+
+                // Calculate shares from detail assignments
+                const shares: Record<string, number> = {};
+                partyParticipants.forEach(p => { shares[p.id] = 0; });
+
+                detailItems.forEach((item: any) => {
+                    const assignedIds: string[] = detailAssignments[item.id] || [];
+                    if (assignedIds.length > 0) {
+                        const perPerson = (Number(item.price) || 0) / assignedIds.length;
+                        assignedIds.forEach(id => {
+                            if (shares[id] !== undefined) {
+                                shares[id] += perPerson;
+                            }
+                        });
+                    }
+                });
+
+                // Add proportional tax + tip
+                partyParticipants.forEach(p => {
+                    const itemShare = shares[p.id];
+                    const proportion = detailSubtotal > 0
+                        ? itemShare / detailSubtotal
+                        : 1 / partyParticipants.length;
+                    shares[p.id] += (detailTax + tipAmount) * proportion;
+                });
+
+                // Save tip to bill
+                await updateBillTip(billId, tipAmount);
+
+                // Create payment requests for non-host participants with auth user_ids
+                const paymentParticipants = partyParticipants
+                    .filter(p => p.user_id && p.user_id !== hostId)
+                    .map(p => ({
+                        userId: p.user_id!,
+                        amount: Math.round((shares[p.id] || 0) * 100) / 100,
+                    }));
+
+                if (paymentParticipants.length > 0) {
+                    await createPaymentRequests(billId, hostId!, paymentParticipants);
+                }
+
+                // Update status to completed → triggers guest navigation via realtime
+                await updateBillStatus(billId, 'completed');
+
+                // Host navigates to payment screen
+                router.push({
+                    pathname: '/bill/payment' as any,
+                    params: { billId },
+                });
+            } catch (err) {
+                console.error('TipScreen: Error finalizing bill:', err);
+                Alert.alert('Error', 'Failed to finalize bill. Please try again.');
+            }
+            return;
+        }
+
+        // ─── Standalone mode: original flow ───
         // Distribute tip proportionally to items
         const itemsWithTip = items.map((item: BillItem) => {
             const tipShare = subtotal > 0
@@ -293,10 +438,55 @@ export default function TipScreen() {
         tipLabel = 'From receipt';
     }
 
+    // Party mode: loading state
+    if (isFromParty && isPartyLoading) {
+        return (
+            <SafeAreaView className="flex-1 bg-surface" style={{ alignItems: 'center', justifyContent: 'center' }} edges={['top']}>
+                <Stack.Screen options={{ headerShown: false }} />
+                <ActivityIndicator size="large" color="#4b29b4" />
+                <Text style={{ color: '#484554', marginTop: 16, fontWeight: '500' }}>Loading tip details...</Text>
+            </SafeAreaView>
+        );
+    }
+
+    // Party mode: guest waiting state — host controls the tip
+    if (isFromParty && !isHost) {
+        return (
+            <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
+                <Stack.Screen options={{ headerShown: false }} />
+                <View className="flex-row items-center justify-between px-6 h-16 w-full z-50">
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        className="w-10 h-10 items-center justify-center rounded-full"
+                    >
+                        <ArrowLeft color="#6346cd" size={24} />
+                    </TouchableOpacity>
+                    <Text className="font-heading font-extrabold tracking-tighter text-2xl text-primary">Divvit</Text>
+                    <View className="w-10" />
+                </View>
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+                    <View style={{
+                        width: 80, height: 80, borderRadius: 40,
+                        backgroundColor: '#e9edff', alignItems: 'center', justifyContent: 'center',
+                        marginBottom: 16,
+                    }}>
+                        <Users size={36} color="#4b29b4" />
+                    </View>
+                    <Text style={{ fontSize: 20, fontWeight: '800', color: '#141b2b', marginBottom: 6, textAlign: 'center' }}>
+                        Waiting for Host
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#484554', textAlign: 'center', fontWeight: '500' }}>
+                        The host is choosing the tip amount. You'll be redirected to payment automatically.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
             <Stack.Screen options={{ headerShown: false }} />
-            
+
             {/* Header */}
             <View className="flex-row items-center justify-between px-6 h-16 w-full z-50">
                 <TouchableOpacity 

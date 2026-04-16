@@ -12,7 +12,31 @@ export type Participant = {
 };
 
 // Bill status types
-export type BillStatus = 'draft' | 'active' | 'completed';
+export type BillStatus = 'draft' | 'active' | 'tip_selection' | 'completed' | 'settled';
+
+// Individual bill item (from bill_items table)
+export type BillItem = {
+    id: string;
+    bill_id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    assigned_to: string | null; // bill_participants.id
+    created_at?: string;
+    updated_at?: string;
+};
+
+// Payment request between participants
+export type PaymentRequest = {
+    id: string;
+    bill_id: string;
+    from_user_id: string;
+    to_user_id: string;
+    amount: number;
+    status: 'pending' | 'sent' | 'confirmed';
+    created_at?: string;
+    updated_at?: string;
+};
 
 // Participant colors - cycle through these for new participants
 export const PARTICIPANT_COLORS = [

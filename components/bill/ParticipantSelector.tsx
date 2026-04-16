@@ -12,19 +12,26 @@ interface User {
 
 interface Props {
     activeUsers: User[];
-    selectedUserId: string;
+    selectedUserIds: string[];
     onSelectUser: (id: string) => void;
     onAddUser?: () => void;
 }
 
-export default function ParticipantSelector({ activeUsers, selectedUserId, onSelectUser, onAddUser }: Props) {
+export default function ParticipantSelector({ activeUsers, selectedUserIds, onSelectUser, onAddUser }: Props) {
+    const selectedCount = selectedUserIds.length;
+    const label = selectedCount === 0
+        ? 'Tap a person to start'
+        : selectedCount === 1
+            ? 'Assigning to'
+            : `Assigning to ${selectedCount} people (split evenly)`;
+
     return (
         <View className="mt-8 pb-4">
-            <Text className="font-semibold text-on-surface-variant uppercase tracking-widest text-[11px] mb-4">Assigning to</Text>
+            <Text className="font-semibold text-on-surface-variant uppercase tracking-widest text-[11px] mb-4">{label}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
                 <View className="flex-row items-center gap-3">
                     {activeUsers.map(user => {
-                        const isSelected = selectedUserId === user.id;
+                        const isSelected = selectedUserIds.includes(user.id);
                         return (
                             <TouchableOpacity
                                 key={user.id}

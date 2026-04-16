@@ -235,15 +235,50 @@ export default function PartyScreen() {
         try {
             const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
             const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-            let itemsToSave: any[] = [];
-            if (billData) {
+
+            // Ensure bill_items exist (migrate from JSONB if capture didn't save them)
+            const itemsCheck = await fetch(
+                `${supabaseUrl}/rest/v1/bill_items?bill_id=eq.${billId}&select=id&limit=1`,
+                {
+                    headers: {
+                        'apikey': supabaseKey!,
+                        'Authorization': `Bearer ${session!.access_token}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+            const existingItems = itemsCheck.ok ? await itemsCheck.json() : [];
+
+            if (existingItems.length === 0 && billData) {
+                // No bill_items yet — create them from billData JSONB
                 try {
                     const parsedBillData = JSON.parse(billData);
-                    itemsToSave = parsedBillData.items || [];
+                    const items = parsedBillData.items || [];
+                    if (items.length > 0) {
+                        const itemsPayload = items.map((item: any) => ({
+                            bill_id: billId,
+                            name: item.name || '',
+                            price: Number(item.price) || 0,
+                            quantity: Number(item.quantity) || 1,
+                        }));
+                        await fetch(`${supabaseUrl}/rest/v1/bill_items`, {
+                            method: 'POST',
+                            headers: {
+                                'apikey': supabaseKey!,
+                                'Authorization': `Bearer ${session!.access_token}`,
+                                'Content-Type': 'application/json',
+                                'Prefer': 'return=minimal',
+                            },
+                            body: JSON.stringify(itemsPayload),
+                        });
+                        console.log('PartyScreen: Created bill_items from JSONB');
+                    }
                 } catch (e) {
-                    console.error('PartyScreen: Error parsing billData:', e);
+                    console.error('PartyScreen: Error creating bill_items:', e);
                 }
             }
+
+            // Update bill status to active
             const response = await fetch(`${supabaseUrl}/rest/v1/bills?id=eq.${billId}`, {
                 method: 'PATCH',
                 headers: {

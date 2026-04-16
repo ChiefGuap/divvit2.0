@@ -19,6 +19,19 @@ import { ArrowLeft, Check, ArrowRight, Plus, Trash2, Save, Shuffle, Users, X, Co
 import * as Crypto from 'expo-crypto';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import {
+    getBillItems,
+    createBillItems,
+    updateBillItem,
+    deleteBillItem,
+    assignItem,
+    subscribeToBillItems,
+    subscribeToBillStatus,
+    subscribeToParticipants,
+    updateBillStatus,
+    unsubscribeAll,
+} from '../../services/billService';
+import { BillItem as SyncBillItem, BillStatus } from '../../types';
 
 import BillHeader from '../../components/bill/BillHeader';
 import BillItemCard from '../../components/bill/BillItemCard';
@@ -93,7 +106,7 @@ export default function BillEditorScreen() {
     }, [billData]);
 
     const [items, setItems] = useState<BillItem[]>(initialItems);
-    const [selectedUserId, setSelectedUserId] = useState<string>(initialUsers[0]?.id ?? '');
+    const [selectedUserIds, setSelectedUserIds] = useState<string[]>(initialUsers[0]?.id ? [initialUsers[0].id] : []);
     const [assignments, setAssignments] = useState<Record<string, string[]>>({});
     const [isSaving, setIsSaving] = useState(false);
     const [isLoadingDraft, setIsLoadingDraft] = useState(isExistingDraft || isFromParty);
@@ -183,13 +196,13 @@ export default function BillEditorScreen() {
                     const myParticipant = participants.find((p: any) => p.user_id === user.id);
                     if (myParticipant) {
                         setMyParticipantId(myParticipant.id);
-                        setSelectedUserId(myParticipant.id);
+                        setSelectedUserIds([myParticipant.id]);
                     } else if (usersFromDB.length > 0) {
-                        setSelectedUserId(usersFromDB[0].id);
+                        setSelectedUserIds([usersFromDB[0].id]);
                     }
                 } else if (!isFromParty && details.users && details.users.length > 0) {
                     setLoadedUsers(details.users);
-                    if (details.users.length > 0) setSelectedUserId(details.users[0].id);
+                    if (details.users.length > 0) setSelectedUserIds([details.users[0].id]);
                 }
             } catch (err: any) {
                 console.error('BillEditor: fetchBillData error:', err?.message || err);
@@ -202,29 +215,76 @@ export default function BillEditorScreen() {
         fetchBillData();
     }, [isExistingDraft, isFromParty, id, user, session]);
 
-    // Real-time assignment sync via Supabase broadcast (party mode only)
+    // ─── Realtime sync for party mode (postgres_changes on bill_items + bill status) ───
+    // Replaces old broadcast-based sync with database-backed realtime subscriptions
+    const [syncItems, setSyncItems] = useState<SyncBillItem[]>([]);
+    const [hasFetchedSyncItems, setHasFetchedSyncItems] = useState(false);
+
     useEffect(() => {
         if (!id || !isFromParty) return;
 
-        const channel = supabase
-            .channel(`bill-session-${id}`)
-            .on('broadcast', { event: 'assignments-updated' }, ({ payload }) => {
-                if (payload?.assignments) {
-                    console.log('BillEditor: Received remote assignment update');
-                    setAssignments(payload.assignments);
-                }
-            })
-            .subscribe((status) => {
-                console.log('BillEditor: Broadcast channel status', status);
-            });
+        // Fetch bill_items from table on mount
+        const loadSyncItems = async () => {
+            try {
+                const items = await getBillItems(id);
+                setSyncItems(items);
+                console.log('BillEditor: Loaded', items.length, 'bill_items from DB');
+            } catch (err) {
+                console.error('BillEditor: Failed to load bill_items:', err);
+            } finally {
+                setHasFetchedSyncItems(true);
+            }
+        };
+        loadSyncItems();
 
-        channelRef.current = channel;
+        // Subscribe to bill_items changes (assignments, new items)
+        const itemsChannel = subscribeToBillItems(id, (updatedItem) => {
+            setSyncItems(prev => {
+                const exists = prev.find(i => i.id === updatedItem.id);
+                if (exists) {
+                    return prev.map(i => i.id === updatedItem.id ? updatedItem : i);
+                }
+                return [...prev, updatedItem];
+            });
+        });
+
+        // Subscribe to bill status changes (tip_selection, completed, settled)
+        const statusChannel = subscribeToBillStatus(id, (newStatus) => {
+            if (newStatus === 'tip_selection') {
+                router.replace({
+                    pathname: '/bill/tip' as any,
+                    params: { billId: id, fromParty: 'true' },
+                });
+            }
+        });
+
+        // Subscribe to new participants joining
+        const participantsChannel = subscribeToParticipants(id, (newParticipant) => {
+            setLoadedUsers(prev => {
+                if (prev.find(u => u.id === newParticipant.id)) return prev;
+                return [...prev, {
+                    id: newParticipant.id,
+                    name: newParticipant.name,
+                    avatar: newParticipant.avatar_url || `https://i.pravatar.cc/150?u=${newParticipant.id}`,
+                    color: newParticipant.color || '#B54CFF',
+                    initials: newParticipant.initials || newParticipant.name.slice(0, 2).toUpperCase(),
+                }];
+            });
+        });
 
         return () => {
-            supabase.removeChannel(channel);
-            channelRef.current = null;
+            unsubscribeAll([itemsChannel, statusChannel, participantsChannel]);
         };
     }, [id, isFromParty]);
+
+    // When host is in party mode, sync bill_items into local items state
+    // so the standalone UI (multi-assignment, quick actions) works
+    useEffect(() => {
+        if (!isFromParty || !isHost || !hasFetchedSyncItems || syncItems.length === 0) return;
+        // Only seed local items once (when first loaded from DB)
+        if (items.length > 1 || (items.length === 1 && items[0].name !== '')) return;
+        setItems(syncItems.map(si => ({ id: si.id, name: si.name, price: si.price })));
+    }, [isFromParty, isHost, hasFetchedSyncItems, syncItems]);
 
     const activeUsers = [
         ...((isExistingDraft || isFromParty) ? loadedUsers : initialUsers),
@@ -296,17 +356,207 @@ export default function BillEditorScreen() {
         setPriceInputs(prev => { const next = { ...prev }; delete next[itemId]; return next; });
     };
 
-    const handleAssignItem = (itemId: string) => {
-        if (!selectedUserId) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); return; }
+    // ─── Party mode (GUEST only): single-assignment item claiming via bill_items table ───
+    // Host uses the multi-assign local state path instead (see handleAssignItem).
+    const handleSyncAssignItem = async (itemId: string) => {
+        const targetParticipantId = myParticipantId;
 
-        // Compute the new assignments eagerly (not inside the updater) so we can broadcast them
+        if (!targetParticipantId) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            return;
+        }
+
+        const item = syncItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        // Guests can't claim items already assigned to someone else
+        if (item.assigned_to && item.assigned_to !== targetParticipantId) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            return;
+        }
+
+        const isTargetItem = item.assigned_to === targetParticipantId;
+        const newAssignment = isTargetItem ? null : targetParticipantId;
+
+        // Optimistic update
+        setSyncItems(prev => prev.map(i =>
+            i.id === itemId ? { ...i, assigned_to: newAssignment } : i
+        ));
+        Haptics.selectionAsync();
+
+        // Persist to Supabase (triggers realtime for others)
+        try {
+            await assignItem(itemId, newAssignment);
+        } catch (error) {
+            // Revert optimistic update on failure
+            setSyncItems(prev => prev.map(i =>
+                i.id === itemId ? { ...i, assigned_to: item.assigned_to } : i
+            ));
+            console.error('BillEditor: Failed to assign item:', error);
+            Alert.alert('Error', 'Failed to assign item. Try again.');
+        }
+    };
+
+    // ─── Party mode: host can add, edit, and delete items via bill_items table ───
+    const handleSyncAddItem = async () => {
+        if (!isHost || !id) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        try {
+            const created = await createBillItems(id, [{ name: '', price: 0, quantity: 1 }]);
+            if (created.length > 0) {
+                setSyncItems(prev => [...prev, created[0]]);
+            }
+        } catch (err) {
+            console.error('BillEditor: Failed to add item:', err);
+            Alert.alert('Error', 'Failed to add item.');
+        }
+    };
+
+    const syncNameTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+    const syncPriceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+    const handleSyncUpdateName = (itemId: string, name: string) => {
+        // Optimistic update
+        setSyncItems(prev => prev.map(i => i.id === itemId ? { ...i, name } : i));
+        // Debounce the DB write
+        const existing = syncNameTimers.current.get(itemId);
+        if (existing) clearTimeout(existing);
+        syncNameTimers.current.set(itemId, setTimeout(async () => {
+            try { await updateBillItem(itemId, { name }); }
+            catch (err) { console.error('BillEditor: Failed to update item name:', err); }
+        }, 500));
+    };
+
+    const handleSyncUpdatePrice = (itemId: string, priceText: string) => {
+        const cleaned = priceText.replace(/[^0-9.]/g, '');
+        setPriceInputs(prev => ({ ...prev, [itemId]: cleaned }));
+        const price = parseFloat(cleaned) || 0;
+        setSyncItems(prev => prev.map(i => i.id === itemId ? { ...i, price } : i));
+        // Debounce the DB write
+        const existing = syncPriceTimers.current.get(itemId);
+        if (existing) clearTimeout(existing);
+        syncPriceTimers.current.set(itemId, setTimeout(async () => {
+            try { await updateBillItem(itemId, { price }); }
+            catch (err) { console.error('BillEditor: Failed to update item price:', err); }
+        }, 500));
+    };
+
+    const handleSyncPriceBlur = (itemId: string) => {
+        setPriceInputs(prev => { const next = { ...prev }; delete next[itemId]; return next; });
+    };
+
+    const handleSyncDeleteItem = async (itemId: string) => {
+        if (!isHost) return;
+        const prevItems = syncItems;
+        setSyncItems(prev => prev.filter(i => i.id !== itemId));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        try {
+            await deleteBillItem(itemId);
+        } catch (err) {
+            setSyncItems(prevItems);
+            console.error('BillEditor: Failed to delete item:', err);
+            Alert.alert('Error', 'Failed to delete item.');
+        }
+    };
+
+    // Host action: Continue to Tip screen (sets bill status to tip_selection)
+    // Syncs local items + assignments to Supabase before transitioning
+    const handleContinueToTip = async () => {
+        if (!isHost || !id) return;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        const validItems = items.filter(item => item.name.trim() || item.price > 0);
+        if (validItems.length === 0) {
+            Alert.alert('No Items', 'Please add at least one item before continuing.');
+            return;
+        }
+
+        try {
+            const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+            const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+            // Delete existing bill_items and re-create from local state
+            await fetch(`${supabaseUrl}/rest/v1/bill_items?bill_id=eq.${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'apikey': supabaseKey!,
+                    'Authorization': `Bearer ${session!.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const itemsPayload = validItems.map(item => ({
+                bill_id: id,
+                name: item.name,
+                price: Number(item.price) || 0,
+                quantity: 1,
+            }));
+            await fetch(`${supabaseUrl}/rest/v1/bill_items`, {
+                method: 'POST',
+                headers: {
+                    'apikey': supabaseKey!,
+                    'Authorization': `Bearer ${session!.access_token}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal',
+                },
+                body: JSON.stringify(itemsPayload),
+            });
+
+            // Save assignments + tax to bill details JSONB
+            await fetch(`${supabaseUrl}/rest/v1/bills?id=eq.${id}`, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': supabaseKey!,
+                    'Authorization': `Bearer ${session!.access_token}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal',
+                },
+                body: JSON.stringify({
+                    details: {
+                        items: validItems,
+                        assignments,
+                        users: activeUsers,
+                        tax: taxAmount,
+                        subtotal,
+                    },
+                }),
+            });
+
+            await updateBillStatus(id, 'tip_selection');
+            // Host navigates immediately; guests navigate via realtime subscription
+            router.push({
+                pathname: '/bill/tip' as any,
+                params: { billId: id, fromParty: 'true' },
+            });
+        } catch (err) {
+            console.error('BillEditor: Failed to update status to tip_selection:', err);
+            Alert.alert('Error', 'Failed to continue. Please try again.');
+        }
+    };
+
+    // ─── Multi-assignment via local state (works in standalone AND party-host mode) ───
+    const handleAssignItem = (itemId: string) => {
+        // In party mode, guests use the single-assign sync path; host uses multi-assign local state
+        if (isFromParty && !isHost) {
+            handleSyncAssignItem(itemId);
+            return;
+        }
+
+        if (selectedUserIds.length === 0) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            return;
+        }
+
         const currentAssignees = assignments[itemId] || [];
+        // If ALL selected users are already assigned → remove them. Otherwise → add them (union).
+        const allAlreadyAssigned = selectedUserIds.every(uid => currentAssignees.includes(uid));
+
         let newAssignees: string[];
-        if (currentAssignees.includes(selectedUserId)) {
-            newAssignees = currentAssignees.filter(uid => uid !== selectedUserId);
+        if (allAlreadyAssigned) {
+            newAssignees = currentAssignees.filter(uid => !selectedUserIds.includes(uid));
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         } else {
-            newAssignees = [...currentAssignees, selectedUserId];
+            newAssignees = Array.from(new Set([...currentAssignees, ...selectedUserIds]));
             Haptics.selectionAsync();
         }
 
@@ -316,26 +566,23 @@ export default function BillEditorScreen() {
                 : { ...assignments, [itemId]: newAssignees };
 
         setAssignments(newAssignments);
-
-        // Broadcast the full updated assignments to all other participants in real time
-        if (isFromParty && channelRef.current) {
-            channelRef.current.send({
-                type: 'broadcast',
-                event: 'assignments-updated',
-                payload: { assignments: newAssignments },
-            });
-        }
     };
 
     const handleSelectUser = (userId: string) => {
+        // Guests can only select themselves
         if (!isHost && myParticipantId && userId !== myParticipantId) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             return;
         }
-        if (selectedUserId !== userId) {
-            setSelectedUserId(userId);
-            Haptics.selectionAsync();
-        }
+        setSelectedUserIds(prev => {
+            if (prev.includes(userId)) {
+                // Don't allow deselecting the last user — keep at least one selected for guest
+                if (!isHost && prev.length === 1) return prev;
+                return prev.filter(uid => uid !== userId);
+            }
+            return [...prev, userId];
+        });
+        Haptics.selectionAsync();
     };
 
     const AVATAR_COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffd54f', '#ba68c8', '#4db6ac', '#ff8a65'];
@@ -344,16 +591,76 @@ export default function BillEditorScreen() {
         Alert.prompt(
             'Add Person',
             'Enter their name',
-            (name) => {
+            async (name) => {
                 if (!name || !name.trim()) return;
                 const trimmed = name.trim();
                 const initials = trimmed.slice(0, 2).toUpperCase();
                 const colorIndex = (additionalUsers.length + activeUsers.length) % AVATAR_COLORS.length;
+                const color = AVATAR_COLORS[colorIndex];
+
+                // If the bill exists in DB (party mode or existing draft), persist to bill_participants
+                // so the added user survives through tip/checkout screens.
+                const billExistsInDb = (isFromParty || isExistingDraft) && id && id !== 'new' && session;
+                if (billExistsInDb) {
+                    try {
+                        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+                        const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+                        const response = await fetch(
+                            `${supabaseUrl}/rest/v1/bill_participants`,
+                            {
+                                method: 'POST',
+                                headers: {
+                                    'apikey': supabaseKey!,
+                                    'Authorization': `Bearer ${session!.access_token}`,
+                                    'Content-Type': 'application/json',
+                                    'Prefer': 'return=representation',
+                                },
+                                body: JSON.stringify({
+                                    bill_id: id,
+                                    user_id: null,
+                                    name: trimmed,
+                                    is_guest: true,
+                                    color,
+                                    initials,
+                                }),
+                            }
+                        );
+                        if (!response.ok) {
+                            const errText = await response.text();
+                            console.error('BillEditor: Failed to insert bill_participant:', errText);
+                            Alert.alert('Error', 'Failed to add person. Please try again.');
+                            return;
+                        }
+                        const inserted = await response.json();
+                        const dbRow = inserted[0];
+                        const newUser: User = {
+                            id: dbRow.id,
+                            name: dbRow.name,
+                            avatar: dbRow.avatar_url || '',
+                            color: dbRow.color,
+                            initials: dbRow.initials,
+                        };
+                        // Add to loadedUsers (party/existing draft uses loadedUsers), not additionalUsers —
+                        // realtime subscription may also deliver this, so loadedUsers dedupes by id.
+                        setLoadedUsers(prev => {
+                            if (prev.some(u => u.id === newUser.id)) return prev;
+                            return [...prev, newUser];
+                        });
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    } catch (err) {
+                        console.error('BillEditor: Error adding participant:', err);
+                        Alert.alert('Error', 'Failed to add person. Please try again.');
+                    }
+                    return;
+                }
+
+                // Standalone pure mode (no DB yet): add to local state only.
+                // handleSaveAsDraft upserts these into bill_participants on save.
                 const newUser: User = {
                     id: Crypto.randomUUID(),
                     name: trimmed,
                     avatar: '',
-                    color: AVATAR_COLORS[colorIndex],
+                    color,
                     initials,
                 };
                 setAdditionalUsers(prev => [...prev, newUser]);
@@ -544,74 +851,140 @@ export default function BillEditorScreen() {
                     <View className="flex-col gap-4">
                         <View className="flex-row items-center justify-between mb-4">
                             <Text className="text-lg font-bold tracking-tight text-on-surface ml-1 flex-1 flex-shrink">Bill Items</Text>
-                            <TouchableOpacity onPress={handleAddItem} className="flex-row items-center gap-1">
-                                <Plus color="#4b29b4" size={16} />
-                                <Text className="text-primary font-bold text-sm">Add Item</Text>
-                            </TouchableOpacity>
+                            {(!isFromParty || isHost) && (
+                                <TouchableOpacity onPress={isFromParty ? handleSyncAddItem : handleAddItem} className="flex-row items-center gap-1">
+                                    <Plus color="#4b29b4" size={16} />
+                                    <Text className="text-primary font-bold text-sm">Add Item</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
 
-                        {items.map((item, index) => {
-                            const assignedUserIds = assignments[item.id] || [];
-                            const uniqueAssignees = Array.from(new Set(assignedUserIds));
+                        {isFromParty && !isHost ? (
+                            /* ── Party mode (guest): render from bill_items table with single-assignment ── */
+                            syncItems.length > 0 ? syncItems.map((syncItem, index) => {
+                                const assigneeId = syncItem.assigned_to;
+                                const uniqueAssignees = assigneeId ? [assigneeId] : [];
 
-                            return (
-                                <BillItemCard
-                                    key={item.id}
-                                    item={item}
-                                    index={index}
-                                    priceInput={priceInputs[item.id]}
-                                    uniqueAssignees={uniqueAssignees}
-                                    activeUsers={activeUsers}
-                                    onNameChange={(text) => handleUpdateItemName(item.id, text)}
-                                    onPriceChange={(text) => handleUpdateItemPrice(item.id, text)}
-                                    onPriceBlur={() => handlePriceBlur(item.id)}
-                                    onAssignToggle={() => handleAssignItem(item.id)}
-                                    onDelete={() => handleDeleteItem(item.id)}
-                                    setSwipeableRef={(ref) => {
-                                        if (ref) swipeableRefs.current.set(item.id, ref);
-                                    }}
-                                />
-                            );
-                        })}
+                                return (
+                                    <BillItemCard
+                                        key={syncItem.id}
+                                        item={{ id: syncItem.id, name: syncItem.name, price: syncItem.price }}
+                                        index={index}
+                                        priceInput={undefined as any}
+                                        uniqueAssignees={uniqueAssignees}
+                                        activeUsers={activeUsers}
+                                        onNameChange={() => {}}
+                                        onPriceChange={() => {}}
+                                        onPriceBlur={() => {}}
+                                        onAssignToggle={() => handleAssignItem(syncItem.id)}
+                                        onDelete={() => {}}
+                                        setSwipeableRef={() => {}}
+                                    />
+                                );
+                            }) : (
+                                <View className="items-center py-8">
+                                    <Text className="text-on-surface-variant font-medium text-sm">
+                                        Waiting for host to add items...
+                                    </Text>
+                                </View>
+                            )
+                        ) : (
+                            /* ── Host (party or standalone): full editing with multi-assignment ── */
+                            items.map((item, index) => {
+                                const assignedUserIds = assignments[item.id] || [];
+                                const uniqueAssignees = Array.from(new Set(assignedUserIds));
+
+                                return (
+                                    <BillItemCard
+                                        key={item.id}
+                                        item={item}
+                                        index={index}
+                                        priceInput={priceInputs[item.id]}
+                                        uniqueAssignees={uniqueAssignees}
+                                        activeUsers={activeUsers}
+                                        onNameChange={(text) => handleUpdateItemName(item.id, text)}
+                                        onPriceChange={(text) => handleUpdateItemPrice(item.id, text)}
+                                        onPriceBlur={() => handlePriceBlur(item.id)}
+                                        onAssignToggle={() => handleAssignItem(item.id)}
+                                        onDelete={() => handleDeleteItem(item.id)}
+                                        setSwipeableRef={(ref) => {
+                                            if (ref) swipeableRefs.current.set(item.id, ref);
+                                        }}
+                                    />
+                                );
+                            })
+                        )}
 
                         {/* Placeholder for New Item */}
-                        <TouchableOpacity
-                            onPress={handleAddItem}
-                            activeOpacity={0.7}
-                            className="border-2 border-dashed border-outline-variant/50 p-5 rounded-xl flex items-center justify-center bg-gray-50/50 mt-1 mb-4"
-                        >
-                            <View className="items-center gap-1">
-                                <Plus color="#9CA3AF" size={24} />
-                                <Text className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF]">Draft next item</Text>
-                            </View>
-                        </TouchableOpacity>
+                        {(!isFromParty || isHost) && (
+                            <TouchableOpacity
+                                onPress={isFromParty ? handleSyncAddItem : handleAddItem}
+                                activeOpacity={0.7}
+                                className="border-2 border-dashed border-outline-variant/50 p-5 rounded-xl flex items-center justify-center bg-gray-50/50 mt-1 mb-4"
+                            >
+                                <View className="items-center gap-1">
+                                    <Plus color="#9CA3AF" size={24} />
+                                    <Text className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF]">Draft next item</Text>
+                                </View>
+                            </TouchableOpacity>
+                        )}
                     </View>
 
-                    <QuickActionsGrid 
-                        onSplitEvenly={handleSplitOptions}
-                        onRandomize={handleRandomize}
-                        onClear={handleClearAssignments}
-                    />
+                    {(!isFromParty || isHost) && (
+                        <QuickActionsGrid
+                            onSplitEvenly={handleSplitOptions}
+                            onRandomize={handleRandomize}
+                            onClear={handleClearAssignments}
+                        />
+                    )}
 
                     <ParticipantSelector
                         activeUsers={activeUsers}
-                        selectedUserId={selectedUserId}
+                        selectedUserIds={selectedUserIds}
                         onSelectUser={handleSelectUser}
-                        onAddUser={handleAddUser}
+                        onAddUser={(!isFromParty || isHost) ? handleAddUser : undefined}
                     />
 
                 </KeyboardAwareScrollView>
 
-                {/* Floating Save Button */}
-                <View className="absolute bottom-6 right-6 z-50">
-                    <TouchableOpacity 
-                        onPress={handleNext}
-                        activeOpacity={0.8}
-                        className="bg-primary h-16 w-16 rounded-full flex items-center justify-center shadow-xl shadow-primary/20 active:scale-95 transition-all"
-                    >
-                        <Check color="white" size={32} />
-                    </TouchableOpacity>
-                </View>
+                {/* Floating Action Button */}
+                {isFromParty && isHost ? (
+                    /* Host in party mode: "Continue to Tip" button */
+                    <View className="absolute bottom-6 left-6 right-6 z-50">
+                        <TouchableOpacity
+                            onPress={handleContinueToTip}
+                            activeOpacity={0.8}
+                            className="bg-primary h-14 rounded-full flex-row items-center justify-center shadow-xl shadow-primary/20"
+                        >
+                            <Text className="text-white font-bold text-base mr-2">Continue to Tip</Text>
+                            <ArrowRight color="white" size={20} />
+                        </TouchableOpacity>
+                    </View>
+                ) : !isFromParty ? (
+                    /* Standalone mode: next button */
+                    <View className="absolute bottom-6 right-6 z-50">
+                        <TouchableOpacity
+                            onPress={handleNext}
+                            activeOpacity={0.8}
+                            className="bg-primary h-16 w-16 rounded-full flex items-center justify-center shadow-xl shadow-primary/20 active:scale-95 transition-all"
+                        >
+                            <Check color="white" size={32} />
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    /* Guest in party mode: waiting indicator */
+                    <View className="absolute bottom-6 left-6 right-6 z-50">
+                        <View
+                            className="h-14 rounded-full flex-row items-center justify-center"
+                            style={{ backgroundColor: '#f1f3ff', borderWidth: 1, borderColor: 'rgba(202,196,214,0.3)' }}
+                        >
+                            <Users color="#6346cd" size={18} />
+                            <Text className="text-on-surface-variant font-medium text-sm ml-2">
+                                Claim your items — host will continue when ready
+                            </Text>
+                        </View>
+                    </View>
+                )}
 
                 {/* Custom Split Modal */}
                 <Modal

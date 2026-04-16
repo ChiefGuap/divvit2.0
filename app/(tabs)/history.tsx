@@ -7,6 +7,7 @@ import {
     Share,
     Dimensions,
     ViewToken,
+    Image,
 } from 'react-native';
 import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,16 +15,33 @@ import * as Haptics from 'expo-haptics';
 import { Utensils, Share2, CheckCircle } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import DivvitHeader from '@/components/DivvitHeader';
+import { supabase } from '../../lib/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // --- Types ---
 type User = { id: string; name: string; color: string; initials: string; };
 type BillItem = { id: string; name: string; price: number; };
+type BillParticipantRow = {
+    id: string;
+    user_id: string | null;
+    name: string;
+    is_guest: boolean;
+    color: string;
+    initials: string;
+};
+type PaymentRequestRow = {
+    bill_id: string;
+    from_user_id: string;
+    to_user_id: string;
+    amount: number;
+    status: string;
+};
 type Bill = {
     id: string;
     host_id: string;
     total_amount: number;
+    status: string;
     details: {
         items: BillItem[];
         tax: number;
@@ -35,7 +53,9 @@ type Bill = {
         paidStatus: string[];
         closedAt: string;
     };
+    group_photo_url?: string;
     created_at: string;
+    bill_participants?: BillParticipantRow[];
 };
 
 // --- Helpers ---
@@ -50,6 +70,7 @@ const formatDate = (dateString: string): string => {
 };
 
 const getBillSettled = (bill: Bill): boolean => {
+    if (bill.status === 'settled') return true;
     const { users = [], paidStatus = [] } = bill.details || {};
     return users.length > 0 && paidStatus.length >= users.length;
 };
@@ -61,13 +82,98 @@ const getSplitType = (bill: Bill): string => {
 };
 
 // --- Receipt Card ---
-const ReceiptCard = ({ bill, onShare }: { bill: Bill; onShare: () => void }) => {
+const ReceiptCard = ({ bill, onShare, paymentRequests = [] }: {
+    bill: Bill;
+    onShare: () => void;
+    paymentRequests: PaymentRequestRow[];
+}) => {
     const { details, created_at, total_amount, host_id } = bill;
     const { items = [], tax = 0, tip = 0, subtotal = 0, users = [], userTotals = {}, paidStatus = [] } = details || {};
     const settled = getBillSettled(bill);
     const splitType = getSplitType(bill);
     const dateStr = formatDate(created_at);
     const computedSubtotal = subtotal || items.reduce((acc, i) => acc + i.price, 0);
+
+    // FIX 2: Total with fallback
+    const displayTotal = (total_amount && total_amount > 0)
+        ? total_amount
+        : computedSubtotal + tax + tip;
+
+    // Helpers using bill_participants + payment_requests + details fallback
+    const billParticipants = bill.bill_participants || [];
+    const detailAssignments: Record<string, string[]> = bill.details?.assignments || {};
+
+    // Pre-calculate shares from details.items + details.assignments (always available)
+    const calculatedShares: Record<string, number> = {};
+    if (items.length > 0 && Object.keys(detailAssignments).length > 0) {
+        users.forEach(u => { calculatedShares[u.id] = 0; });
+        items.forEach(item => {
+            const assignedIds: string[] = detailAssignments[item.id] || [];
+            if (assignedIds.length > 0) {
+                const perPerson = (item.price || 0) / assignedIds.length;
+                assignedIds.forEach(id => {
+                    if (calculatedShares[id] !== undefined) {
+                        calculatedShares[id] += perPerson;
+                    }
+                });
+            }
+        });
+        // Add proportional tax + tip
+        users.forEach(u => {
+            const itemShare = calculatedShares[u.id] || 0;
+            const proportion = computedSubtotal > 0
+                ? itemShare / computedSubtotal
+                : 1 / (users.length || 1);
+            calculatedShares[u.id] = itemShare + (tax + tip) * proportion;
+        });
+    }
+
+    const getAmountForUser = (userId: string): number => {
+        // Try userTotals from details JSONB first (standalone flow)
+        if (userTotals[userId] && userTotals[userId] > 0) return userTotals[userId];
+
+        // Find matching bill_participant
+        const bp = billParticipants.find(p => p.id === userId || p.user_id === userId);
+        const authUserId = bp?.user_id || userId;
+
+        // Try payment_requests if available
+        if (paymentRequests.length > 0) {
+            if (authUserId === host_id) {
+                const guestTotal = paymentRequests.reduce(
+                    (sum, r) => sum + (Number(r.amount) || 0), 0
+                );
+                return Math.max(0, displayTotal - guestTotal);
+            }
+            const req = paymentRequests.find(r => r.from_user_id === authUserId);
+            if (req) return Number(req.amount) || 0;
+        }
+
+        // Fallback: use calculated shares from details.items + details.assignments
+        if (calculatedShares[userId] && calculatedShares[userId] > 0) {
+            return calculatedShares[userId];
+        }
+
+        // Last resort: equal split
+        return displayTotal / (users.length || 1);
+    };
+
+    const getStatusForUser = (userId: string): 'settled' | 'sent' | 'pending' => {
+        // Check standalone paidStatus first
+        if (paidStatus.includes(userId)) return 'settled';
+
+        // Find matching bill_participant
+        const bp = billParticipants.find(p => p.id === userId || p.user_id === userId);
+        const authUserId = bp?.user_id || userId;
+
+        // Host is always settled (they fronted the bill)
+        if (authUserId === host_id) return 'settled';
+
+        // Check payment_request status
+        const req = paymentRequests.find(r => r.from_user_id === authUserId);
+        if (req?.status === 'confirmed') return 'settled';
+        if (req?.status === 'sent') return 'sent';
+        return 'pending';
+    };
 
     return (
         <ScrollView
@@ -128,12 +234,12 @@ const ReceiptCard = ({ bill, onShare }: { bill: Bill; onShare: () => void }) => 
 
                     {/* Line items */}
                     {items.map((item, idx) => (
-                        <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: idx < items.length - 1 ? 16 : 24 }}>
+                        <View key={item?.id ? `item-${item.id}` : `item-${idx}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: idx < items.length - 1 ? 16 : 24 }}>
                             <View style={{ flex: 1, marginRight: 16 }}>
-                                <Text style={{ fontWeight: '700', color: '#141b2b', fontSize: 14 }}>{item.name || 'Item'}</Text>
-                                <Text style={{ fontSize: 12, color: '#484554', marginTop: 2 }}>1 × ${item.price.toFixed(2)}</Text>
+                                <Text style={{ fontWeight: '700', color: '#141b2b', fontSize: 14 }}>{item?.name || 'Item'}</Text>
+                                <Text style={{ fontSize: 12, color: '#484554', marginTop: 2 }}>1 × ${(item?.price ?? 0).toFixed(2)}</Text>
                             </View>
-                            <Text style={{ fontWeight: '700', color: '#141b2b', fontSize: 14 }}>${item.price.toFixed(2)}</Text>
+                            <Text style={{ fontWeight: '700', color: '#141b2b', fontSize: 14 }}>${(item?.price ?? 0).toFixed(2)}</Text>
                         </View>
                     ))}
 
@@ -159,10 +265,24 @@ const ReceiptCard = ({ bill, onShare }: { bill: Bill; onShare: () => void }) => 
                     )}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12 }}>
                         <Text style={{ fontSize: 20, fontWeight: '900', color: '#141b2b' }}>Total</Text>
-                        <Text style={{ fontSize: 28, fontWeight: '900', color: '#4b29b4' }}>${total_amount.toFixed(2)}</Text>
+                        <Text style={{ fontSize: 28, fontWeight: '900', color: '#4b29b4' }}>${displayTotal.toFixed(2)}</Text>
                     </View>
                 </View>
             </View>
+
+            {/* Group Photo */}
+            {bill.group_photo_url && (
+                <Image
+                    source={{ uri: bill.group_photo_url }}
+                    style={{
+                        width: '100%',
+                        height: 200,
+                        borderRadius: 24,
+                        marginBottom: 16,
+                    }}
+                    resizeMode="cover"
+                />
+            )}
 
             {/* C) The Split Section */}
             <View style={{
@@ -184,14 +304,18 @@ const ReceiptCard = ({ bill, onShare }: { bill: Bill; onShare: () => void }) => 
 
                 {/* Person rows */}
                 {users.map((u, idx) => {
-                    const amount = userTotals[u.id] || 0;
-                    const isHost = host_id === u.id;
-                    const isPaid = paidStatus.includes(u.id);
-                    const statusLabel = isHost ? 'PAID' : isPaid ? 'REIMBURSED' : 'OWES';
-                    const done = isHost || isPaid;
+                    const amount = getAmountForUser(u.id);
+                    const status = getStatusForUser(u.id);
+                    const isHost = host_id === u.id || (billParticipants.find(p => p.id === u.id)?.user_id === host_id);
+                    const done = status === 'settled';
+
+                    const statusLabel = isHost ? 'PAID' : done ? 'REIMBURSED' : status === 'sent' ? 'SENT' : 'OWES';
+                    const statusColor = done ? '#16a34a' : status === 'sent' ? '#1d4ed8' : '#d97706';
+                    const statusBg = done ? '#dcfce7' : status === 'sent' ? '#dbeafe' : '#fef3c7';
+                    const statusText = done ? 'Done' : status === 'sent' ? 'Sent' : 'Pending';
 
                     return (
-                        <View key={u.id} style={{
+                        <View key={u.id ? `user-${u.id}` : `user-${idx}`} style={{
                             backgroundColor: '#ffffff',
                             padding: 16,
                             borderRadius: 20,
@@ -230,9 +354,9 @@ const ReceiptCard = ({ bill, onShare }: { bill: Bill; onShare: () => void }) => 
                                     ${amount.toFixed(2)}
                                 </Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}>
-                                    <CheckCircle size={12} color={done ? '#16a34a' : '#d97706'} />
-                                    <Text style={{ fontSize: 9, fontWeight: '700', color: done ? '#16a34a' : '#d97706', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        {done ? 'Done' : 'Pending'}
+                                    <CheckCircle size={12} color={statusColor} />
+                                    <Text style={{ fontSize: 9, fontWeight: '700', color: statusColor, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        {statusText}
                                     </Text>
                                 </View>
                             </View>
@@ -328,6 +452,7 @@ const SkeletonCard = () => (
 export default function HistoryScreen() {
     const { user, session, isLoading: isAuthLoading } = useAuth();
     const [bills, setBills] = useState<Bill[]>([]);
+    const [billPaymentRequests, setBillPaymentRequests] = useState<Record<string, PaymentRequestRow[]>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [activeIndex, setActiveIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
@@ -337,7 +462,11 @@ export default function HistoryScreen() {
             const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             const d = new Date(bill.created_at);
             const dateStr = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-            const total = `$${bill.total_amount.toFixed(2)}`;
+            const { details, total_amount } = bill;
+            const displayTotal = (total_amount && total_amount > 0)
+                ? total_amount
+                : ((details?.subtotal || 0) + (details?.tax || 0) + (details?.tip || 0));
+            const total = `$${displayTotal.toFixed(2)}`;
             const scheme = __DEV__ ? 'divvit-dev' : 'divvit';
             await Share.share({
                 message: `💸 Divvit Receipt — ${total}\n📅 ${dateStr}\n👥 Split with ${bill.details?.users?.length || 0} people\n\n🔗 ${scheme}://bill/${bill.id}`,
@@ -356,7 +485,7 @@ export default function HistoryScreen() {
             const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
             const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
             const response = await fetch(
-                `${supabaseUrl}/rest/v1/bills?host_id=eq.${user.id}&status=in.(settled,completed,closed)&select=*&order=created_at.desc`,
+                `${supabaseUrl}/rest/v1/bills?host_id=eq.${user.id}&status=in.(settled,completed,closed)&select=*,bill_participants(id,user_id,name,is_guest,color,initials)&order=created_at.desc`,
                 {
                     headers: {
                         'apikey': supabaseKey!,
@@ -368,6 +497,29 @@ export default function HistoryScreen() {
             if (!response.ok) { console.error('Error fetching bills:', response.status); return; }
             const data = await response.json();
             setBills(data || []);
+
+            // FIX 3: Fetch payment_requests for all bills
+            const billIds = (data || []).map((b: Bill) => b.id);
+            if (billIds.length > 0) {
+                const { data: prData, error: prError } = await supabase
+                    .from('payment_requests')
+                    .select('bill_id, from_user_id, to_user_id, amount, status')
+                    .in('bill_id', billIds);
+
+                if (prError) {
+                    console.warn('payment_requests fetch error:', prError.code, prError.message);
+                    if (prError.code === '42P01') {
+                        console.warn('payment_requests table not found — amounts will show $0 until table is created');
+                    }
+                }
+
+                const grouped: Record<string, PaymentRequestRow[]> = {};
+                (prData || []).forEach((pr: PaymentRequestRow) => {
+                    if (!grouped[pr.bill_id]) grouped[pr.bill_id] = [];
+                    grouped[pr.bill_id].push(pr);
+                });
+                setBillPaymentRequests(grouped);
+            }
         } catch (err) {
             console.error('Unexpected error:', err);
         } finally {
@@ -387,8 +539,12 @@ export default function HistoryScreen() {
     const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
     const renderItem = useCallback(({ item }: { item: Bill }) => (
-        <ReceiptCard bill={item} onShare={() => handleShare(item)} />
-    ), [handleShare]);
+        <ReceiptCard
+            bill={item}
+            onShare={() => handleShare(item)}
+            paymentRequests={billPaymentRequests[item.id] || []}
+        />
+    ), [handleShare, billPaymentRequests]);
 
     const keyExtractor = useCallback((item: Bill) => item.id, []);
 

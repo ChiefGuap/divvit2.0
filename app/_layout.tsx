@@ -7,6 +7,7 @@ import { View, ActivityIndicator, Linking, Alert } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { getInitials, getNextColor } from "../types";
 import { supabase } from "../lib/supabase";
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 // Loading screen component
 function LoadingScreen() {
@@ -290,9 +291,14 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <ProtectedLayout />
-    </AuthProvider>
+    <StripeProvider
+      publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}
+      merchantIdentifier="merchant.com.theraq17.divvit"
+    >
+      <AuthProvider>
+        <ProtectedLayout />
+      </AuthProvider>
+    </StripeProvider>
   );
 }
 

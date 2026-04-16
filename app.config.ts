@@ -25,9 +25,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ios: {
             supportsTablet: true,
             bundleIdentifier,
-            buildNumber: '14',
+            buildNumber: '16',
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false,
+                NSCameraUsageDescription: 'Divvit needs camera access to take group photos after splitting a bill.',
+                NSPhotoLibraryUsageDescription: 'Divvit needs photo library access to save group photos.',
             },
         },
         android: {
@@ -43,7 +45,22 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             output: 'static',
             favicon: './assets/images/favicon.png',
         },
-        plugins: ['expo-router'],
+        plugins: [
+            'expo-router',
+            [
+                'expo-image-picker',
+                {
+                    cameraPermission: 'Divvit needs camera access to take group photos after splitting a bill.',
+                },
+            ],
+            [
+                '@stripe/stripe-react-native',
+                {
+                    merchantIdentifier: 'merchant.com.theraq17.divvit',
+                    enableGooglePay: false,
+                },
+            ],
+        ],
         experiments: {
             typedRoutes: false,
         },

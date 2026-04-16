@@ -153,6 +153,33 @@ export default function CaptureScreen() {
                 }
             );
 
+            // Save items to bill_items table for realtime sync
+            const itemsPayload = (result.items || []).map((item: any) => ({
+                bill_id: billId,
+                name: item.name || '',
+                price: Number(item.price) || 0,
+                quantity: Number(item.quantity) || 1,
+            }));
+
+            if (itemsPayload.length > 0) {
+                const itemsResponse = await fetch(
+                    `${supabaseUrl}/rest/v1/bill_items`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'apikey': supabaseKey!,
+                            'Authorization': `Bearer ${session.access_token}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal',
+                        },
+                        body: JSON.stringify(itemsPayload),
+                    }
+                );
+                if (!itemsResponse.ok) {
+                    console.warn('CaptureScreen: Failed to save bill_items, will retry on split start');
+                }
+            }
+
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
             // Navigate to Party Screen instead of setup
