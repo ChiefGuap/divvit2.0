@@ -1,4 +1,4 @@
-import { Linking, Alert, Platform } from 'react-native';
+import { Linking, Alert, Platform, Clipboard } from 'react-native';
 
 /**
  * Opens Venmo app with pre-filled payment details.
@@ -137,6 +137,69 @@ export async function requestCashApp(
             ]
         );
     }
+}
+
+/**
+ * Opens Apple Cash (via iMessage) with a pre-filled amount and recipient.
+ */
+export async function openAppleCash(
+    handle: string,
+    amount: number,
+    note: string
+): Promise<void> {
+    if (Platform.OS !== 'ios') {
+        Alert.alert('Not Available', 'Apple Cash is only available on iOS.');
+        return;
+    }
+
+    const formattedAmount = amount.toFixed(2);
+    const encodedNote = encodeURIComponent(note);
+    // Apple Cash uses the sms: scheme to trigger the iMessage payment UI
+    const url = `sms:${handle}?body=${encodedNote} (Pay $${formattedAmount})`;
+
+    try {
+        await Linking.openURL(url);
+    } catch (error) {
+        console.error('Apple Cash error:', error);
+        Alert.alert(
+            'Cannot Open Messages',
+            `Please send $${formattedAmount} to ${handle} via Apple Cash in Messages.`
+        );
+    }
+}
+
+/**
+ * Opens Zelle Gateway after copying the handle to clipboard.
+ */
+export async function openZelle(
+    handle: string
+): Promise<void> {
+    // Copy handle to clipboard
+    Clipboard.setString(handle);
+
+    const gatewayUrl = 'https://www.zellepay.com/get-started';
+
+    Alert.alert(
+        'Zelle Handle Copied',
+        `${handle} has been copied to your clipboard.\n\nNow opening Zelle to choose your bank.`,
+        [
+            {
+                text: 'Wait, Cancel',
+                style: 'cancel'
+            },
+            {
+                text: 'Continue to Zelle',
+                onPress: async () => {
+                    try {
+                        await Linking.openURL(gatewayUrl);
+                    } catch (error) {
+                        console.error('Zelle gateway error:', error);
+                        Alert.alert('Error', 'Could not open Zelle.com in your browser.');
+                    }
+                }
+            }
+        ]
+    );
 }
 
 /**

@@ -48,11 +48,15 @@ export default function SetupProfileScreen() {
     const [username, setUsername] = useState('');
     const [venmoHandle, setVenmoHandle] = useState('');
     const [cashappHandle, setCashappHandle] = useState('');
+    const [zelleHandle, setZelleHandle] = useState('');
+    const [applePayHandle, setApplePayHandle] = useState('');
     const [isCheckingUsername, setIsCheckingUsername] = useState(false);
     const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
     const [usernameError, setUsernameError] = useState('');
     const [showVenmoModal, setShowVenmoModal] = useState(false);
     const [showCashAppModal, setShowCashAppModal] = useState(false);
+    const [showZelleModal, setShowZelleModal] = useState(false);
+    const [showApplePayModal, setShowApplePayModal] = useState(false);
     const [tempHandle, setTempHandle] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -146,6 +150,8 @@ export default function SetupProfileScreen() {
                 dob: params.dob ? new Date(params.dob).toISOString().split('T')[0] : null,
                 venmo_handle: venmoHandle || null,
                 cashapp_handle: cashappHandle || null,
+                zelle_handle: zelleHandle || null,
+                apple_pay_handle: applePayHandle || null,
                 has_onboarded: true,
                 updated_at: new Date().toISOString(),
             };
@@ -198,6 +204,16 @@ export default function SetupProfileScreen() {
         setShowCashAppModal(true);
     };
 
+    const handleConnectZelle = () => {
+        setTempHandle(zelleHandle);
+        setShowZelleModal(true);
+    };
+
+    const handleConnectApplePay = () => {
+        setTempHandle(applePayHandle);
+        setShowApplePayModal(true);
+    };
+
     const saveVenmoHandle = async () => {
         await Haptics.selectionAsync();
         setVenmoHandle(tempHandle);
@@ -208,6 +224,18 @@ export default function SetupProfileScreen() {
         await Haptics.selectionAsync();
         setCashappHandle(tempHandle);
         setShowCashAppModal(false);
+    };
+
+    const saveZelleHandle = async () => {
+        await Haptics.selectionAsync();
+        setZelleHandle(tempHandle);
+        setShowZelleModal(false);
+    };
+
+    const saveApplePayHandle = async () => {
+        await Haptics.selectionAsync();
+        setApplePayHandle(tempHandle);
+        setShowApplePayModal(false);
     };
 
     const renderUsernameStatus = () => {
@@ -323,7 +351,7 @@ export default function SetupProfileScreen() {
                         {/* Cash App Button */}
                         <TouchableOpacity
                             onPress={handleConnectCashApp}
-                            className={`flex-row items-center h-14 px-4 rounded-2xl border ${cashappHandle ? 'bg-green-50 border-green-300' : 'bg-divvit-input-bg border-divvit-input-border'
+                            className={`flex-row items-center h-14 px-4 rounded-2xl border mb-3 ${cashappHandle ? 'bg-green-50 border-green-300' : 'bg-divvit-input-bg border-divvit-input-border'
                                 }`}
                             activeOpacity={0.7}
                         >
@@ -344,6 +372,58 @@ export default function SetupProfileScreen() {
                                 )}
                             </View>
                             {cashappHandle && <Check size={20} color="#22C55E" />}
+                        </TouchableOpacity>
+
+                        {/* Zelle Button */}
+                        <TouchableOpacity
+                            onPress={handleConnectZelle}
+                            className={`flex-row items-center h-14 px-4 rounded-2xl border mb-3 ${zelleHandle ? 'bg-purple-50 border-purple-300' : 'bg-divvit-input-bg border-divvit-input-border'
+                                }`}
+                            activeOpacity={0.7}
+                        >
+                            <View
+                                className="w-8 h-8 rounded-lg items-center justify-center mr-3"
+                                style={{ backgroundColor: '#6D1ED4' }}
+                            >
+                                <Text className="text-white font-bold text-sm">Z</Text>
+                            </View>
+                            <View className="flex-1">
+                                {zelleHandle ? (
+                                    <>
+                                        <Text className="text-divvit-text font-body font-medium">Zelle Connected</Text>
+                                        <Text className="text-divvit-muted text-xs">{zelleHandle}</Text>
+                                    </>
+                                ) : (
+                                    <Text className="text-divvit-text font-body">Connect Zelle</Text>
+                                )}
+                            </View>
+                            {zelleHandle && <Check size={20} color="#22C55E" />}
+                        </TouchableOpacity>
+
+                        {/* Apple Pay Button */}
+                        <TouchableOpacity
+                            onPress={handleConnectApplePay}
+                            className={`flex-row items-center h-14 px-4 rounded-2xl border ${applePayHandle ? 'bg-gray-50 border-gray-300' : 'bg-divvit-input-bg border-divvit-input-border'
+                                }`}
+                            activeOpacity={0.7}
+                        >
+                            <View
+                                className="w-8 h-8 rounded-lg items-center justify-center mr-3"
+                                style={{ backgroundColor: '#000000' }}
+                            >
+                                <Smartphone size={18} color="#FFFFFF" strokeWidth={3} />
+                            </View>
+                            <View className="flex-1">
+                                {applePayHandle ? (
+                                    <>
+                                        <Text className="text-divvit-text font-body font-medium">Apple Cash Connected</Text>
+                                        <Text className="text-divvit-muted text-xs">{applePayHandle}</Text>
+                                    </>
+                                ) : (
+                                    <Text className="text-divvit-text font-body">Connect Apple Cash</Text>
+                                )}
+                            </View>
+                            {applePayHandle && <Check size={20} color="#22C55E" />}
                         </TouchableOpacity>
 
                         <Text className="text-divvit-muted text-xs mt-2 text-center">
@@ -460,6 +540,85 @@ export default function SetupProfileScreen() {
                         </View>
                         <Text className="text-divvit-muted text-xs mt-2">
                             Enter your $cashtag without the $ symbol
+                        </Text>
+                    </View>
+                </SafeAreaView>
+            </Modal>
+            {/* Zelle Modal */}
+            <Modal
+                visible={showZelleModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+            >
+                <SafeAreaView className="flex-1 bg-white">
+                    <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
+                        <TouchableOpacity onPress={() => setShowZelleModal(false)}>
+                            <Text className="text-divvit-muted font-body">Cancel</Text>
+                        </TouchableOpacity>
+                        <Text className="text-lg font-heading font-bold text-divvit-text">
+                            Connect Zelle
+                        </Text>
+                        <TouchableOpacity onPress={saveZelleHandle}>
+                            <Text className="text-divvit-secondary font-body font-medium">Save</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View className="flex-1 px-6 pt-8">
+                        <Text className="text-sm mb-2 font-body font-medium text-divvit-muted">
+                            Zelle Email or Phone
+                        </Text>
+                        <View className="bg-divvit-input-bg border border-divvit-input-border rounded-2xl h-14 px-4 flex-row items-center">
+                            <TextInput
+                                className="flex-1 text-divvit-text font-body text-base h-full"
+                                placeholder="email@example.com or phone"
+                                placeholderTextColor="#9CA3AF"
+                                value={tempHandle}
+                                onChangeText={setTempHandle}
+                                autoCapitalize="none"
+                                autoFocus
+                            />
+                        </View>
+                        <Text className="text-divvit-muted text-xs mt-2">
+                            Enter the email or phone number associated with your Zelle account.
+                        </Text>
+                    </View>
+                </SafeAreaView>
+            </Modal>
+
+            {/* Apple Cash Modal */}
+            <Modal
+                visible={showApplePayModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+            >
+                <SafeAreaView className="flex-1 bg-white">
+                    <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
+                        <TouchableOpacity onPress={() => setShowApplePayModal(false)}>
+                            <Text className="text-divvit-muted font-body">Cancel</Text>
+                        </TouchableOpacity>
+                        <Text className="text-lg font-heading font-bold text-divvit-text">
+                            Connect Apple Cash
+                        </Text>
+                        <TouchableOpacity onPress={saveApplePayHandle}>
+                            <Text className="text-divvit-secondary font-body font-medium">Save</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View className="flex-1 px-6 pt-8">
+                        <Text className="text-sm mb-2 font-body font-medium text-divvit-muted">
+                            Apple ID Email or Phone
+                        </Text>
+                        <View className="bg-divvit-input-bg border border-divvit-input-border rounded-2xl h-14 px-4 flex-row items-center">
+                            <TextInput
+                                className="flex-1 text-divvit-text font-body text-base h-full"
+                                placeholder="email@example.com or phone"
+                                placeholderTextColor="#9CA3AF"
+                                value={tempHandle}
+                                onChangeText={setTempHandle}
+                                autoCapitalize="none"
+                                autoFocus
+                            />
+                        </View>
+                        <Text className="text-divvit-muted text-xs mt-2">
+                            Enter the phone number or email linked to your Apple ID.
                         </Text>
                     </View>
                 </SafeAreaView>

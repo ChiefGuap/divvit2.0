@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput } from 'react-native';
-import { CreditCard, DollarSign } from 'lucide-react-native';
+import { CreditCard, DollarSign, Smartphone, Zap } from 'lucide-react-native';
 
 interface Props {
     isEditing: boolean;
@@ -8,13 +8,27 @@ interface Props {
     setVenmoHandle: (val: string) => void;
     cashappHandle: string;
     setCashappHandle: (val: string) => void;
+    zelleHandle: string;
+    setZelleHandle: (val: string) => void;
+    applePayHandle: string;
+    setApplePayHandle: (val: string) => void;
 }
 
-export default function PaymentAccountsCard({ isEditing, venmoHandle, setVenmoHandle, cashappHandle, setCashappHandle }: Props) {
+export default function PaymentAccountsCard({ 
+    isEditing, 
+    venmoHandle, 
+    setVenmoHandle, 
+    cashappHandle, 
+    setCashappHandle,
+    zelleHandle,
+    setZelleHandle,
+    applePayHandle,
+    setApplePayHandle
+}: Props) {
     return (
         <View className="bg-surface-container-low p-6 rounded-3xl mt-4">
             <Text className="text-sm font-bold uppercase tracking-widest text-primary mb-4">Connected Accounts</Text>
-            
+
             <View className="space-y-3">
                 {/* Venmo */}
                 <View className="flex-row items-center justify-between bg-surface-container-lowest p-4 rounded-2xl">
@@ -65,6 +79,56 @@ export default function PaymentAccountsCard({ isEditing, venmoHandle, setVenmoHa
                     </View>
                     <Text className={`text-xs font-bold ${cashappHandle ? 'text-primary' : 'text-[#484554]/40'}`}>
                         {cashappHandle ? 'Linked' : 'Not Linked'}
+                    </Text>
+                </View>
+
+                {/* Zelle */}
+                <View className="flex-row items-center justify-between bg-surface-container-lowest p-4 rounded-2xl mt-3">
+                    <View className="flex-row items-center">
+                        <View className="w-8 h-8 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: 'rgba(109, 30, 212, 0.1)' }}>
+                            <Zap color="#6D1ED4" size={16} />
+                        </View>
+                        {isEditing ? (
+                            <View className="flex-row items-center">
+                                <TextInput
+                                    className="text-sm font-bold bg-surface-container-low rounded-lg h-7 px-2 min-w-[100px]"
+                                    placeholder="email or phone"
+                                    value={zelleHandle}
+                                    onChangeText={setZelleHandle}
+                                    autoCapitalize="none"
+                                />
+                            </View>
+                        ) : (
+                            <Text className="font-bold text-sm text-on-surface">{zelleHandle ? zelleHandle : 'Zelle'}</Text>
+                        )}
+                    </View>
+                    <Text className={`text-xs font-bold ${zelleHandle ? 'text-primary' : 'text-[#484554]/40'}`}>
+                        {zelleHandle ? 'Linked' : 'Not Linked'}
+                    </Text>
+                </View>
+
+                {/* Apple Cash */}
+                <View className="flex-row items-center justify-between bg-surface-container-lowest p-4 rounded-2xl mt-3">
+                    <View className="flex-row items-center">
+                        <View className="w-8 h-8 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: 'rgba(0, 0, 0, 0.1)' }}>
+                            <Smartphone color="#000000" size={16} />
+                        </View>
+                        {isEditing ? (
+                            <View className="flex-row items-center">
+                                <TextInput
+                                    className="text-sm font-bold bg-surface-container-low rounded-lg h-7 px-2 min-w-[100px]"
+                                    placeholder="apple_id"
+                                    value={applePayHandle}
+                                    onChangeText={setApplePayHandle}
+                                    autoCapitalize="none"
+                                />
+                            </View>
+                        ) : (
+                            <Text className="font-bold text-sm text-on-surface">{applePayHandle ? applePayHandle : 'Apple Cash'}</Text>
+                        )}
+                    </View>
+                    <Text className={`text-xs font-bold ${applePayHandle ? 'text-primary' : 'text-[#484554]/40'}`}>
+                        {applePayHandle ? 'Linked' : 'Not Linked'}
                     </Text>
                 </View>
             </View>

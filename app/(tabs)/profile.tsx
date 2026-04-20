@@ -31,6 +31,8 @@ export default function ProfileScreen() {
     const [phone, setPhone] = useState('');
     const [venmoHandle, setVenmoHandle] = useState('');
     const [cashappHandle, setCashappHandle] = useState('');
+    const [zelleHandle, setZelleHandle] = useState('');
+    const [applePayHandle, setApplePayHandle] = useState('');
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -40,6 +42,8 @@ export default function ProfileScreen() {
             setPhone(profile.phone || '');
             setVenmoHandle(profile.venmo_handle || '');
             setCashappHandle(profile.cashapp_handle || '');
+            setZelleHandle(profile.zelle_handle || '');
+            setApplePayHandle(profile.apple_pay_handle || '');
         }
     }, [profile]);
 
@@ -61,6 +65,8 @@ export default function ProfileScreen() {
             setPhone(profile.phone || '');
             setVenmoHandle(profile.venmo_handle || '');
             setCashappHandle(profile.cashapp_handle || '');
+            setZelleHandle(profile.zelle_handle || '');
+            setApplePayHandle(profile.apple_pay_handle || '');
         }
         setIsEditing(false);
     };
@@ -92,6 +98,8 @@ export default function ProfileScreen() {
                         phone: phone || null,
                         venmo_handle: venmoHandle || null,
                         cashapp_handle: cashappHandle || null,
+                        zelle_handle: zelleHandle || null,
+                        apple_pay_handle: applePayHandle || null,
                         updated_at: new Date().toISOString(),
                     }),
                 }
@@ -155,7 +163,7 @@ export default function ProfileScreen() {
                     {/* Profile Header Section */}
                     <View className="mb-10 items-center">
                         <View className="relative mb-6">
-                            <View 
+                            <View
                                 className="w-32 h-32 rounded-3xl overflow-hidden shadow-xl border-4 border-surface-container-lowest"
                                 style={{
                                     shadowColor: '#000',
@@ -174,17 +182,17 @@ export default function ProfileScreen() {
                                     </View>
                                 )}
                             </View>
-                            
+
                             {isEditing ? (
                                 <View className="absolute -bottom-2 -right-12 flex-row space-x-2">
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         onPress={handleCancel}
                                         className="bg-error w-10 h-10 rounded-xl items-center justify-center shadow-lg active:scale-95"
                                         disabled={loading}
                                     >
                                         <X color="#FFFFFF" size={20} />
                                     </TouchableOpacity>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         onPress={handleSave}
                                         className="bg-[#22C55E] w-10 h-10 rounded-xl items-center justify-center shadow-lg active:scale-95"
                                         disabled={loading}
@@ -193,7 +201,7 @@ export default function ProfileScreen() {
                                     </TouchableOpacity>
                                 </View>
                             ) : (
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={handleEdit}
                                     className="absolute -bottom-2 -right-2 bg-primary w-10 h-10 rounded-xl items-center justify-center shadow-lg active:scale-95"
                                 >
@@ -214,20 +222,24 @@ export default function ProfileScreen() {
                             setPhone={setPhone}
                             country={profile?.country || 'United States'}
                         />
-                        
+
                         <PaymentAccountsCard
                             isEditing={isEditing}
                             venmoHandle={venmoHandle}
                             setVenmoHandle={setVenmoHandle}
                             cashappHandle={cashappHandle}
                             setCashappHandle={setCashappHandle}
+                            zelleHandle={zelleHandle}
+                            setZelleHandle={setZelleHandle}
+                            applePayHandle={applePayHandle}
+                            setApplePayHandle={setApplePayHandle}
                         />
-                        
+
                         <QuickStatsCard totalSavings="$2,450.80" />
 
                         {/* Logout Action */}
                         <View className="mt-8 mb-12">
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 onPress={handleLogout}
                                 className="w-full flex-row items-center justify-center py-4 rounded-2xl active:scale-95"
                                 style={{ backgroundColor: 'rgba(186, 26, 26, 0.05)' }}

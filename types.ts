@@ -11,6 +11,22 @@ export type Participant = {
     initials: string;
 };
 
+export type Profile = {
+    id: string;
+    username: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+    phone: string | null;
+    venmo_handle: string | null;
+    cashapp_handle: string | null;
+    zelle_handle: string | null;
+    apple_pay_handle: string | null;
+    has_onboarded: boolean;
+    created_at?: string;
+    updated_at?: string;
+};
+
 // Bill status types
 export type BillStatus = 'draft' | 'active' | 'tip_selection' | 'completed' | 'settled';
 

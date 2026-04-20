@@ -7,7 +7,7 @@ import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
-import { ArrowLeft, Check, Lock, DollarSign, Smartphone, Banknote } from 'lucide-react-native';
+import { ArrowLeft, Check, Lock, DollarSign, Smartphone, Banknote, Zap } from 'lucide-react-native';
 import { usePlatformPay, PlatformPay } from '@stripe/stripe-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
@@ -25,7 +25,14 @@ import {
     unsubscribeAll,
 } from '../../services/billService';
 import { BillItem, Participant, PaymentRequest } from '../../types';
-import { openVenmo, openCashApp, requestVenmo, requestCashApp } from '../../utils/payments';
+import { 
+    openVenmo, 
+    openCashApp, 
+    openAppleCash, 
+    openZelle, 
+    requestVenmo, 
+    requestCashApp 
+} from '../../utils/payments';
 import { supabase } from '../../lib/supabase';
 
 // ─── DESIGN TOKENS ─────────────────────────────────────────────────────────
@@ -61,7 +68,12 @@ export default function PaymentScreen() {
     const [billItems, setBillItems] = useState<BillItem[]>([]);
     const [participants, setParticipants] = useState<Participant[]>([]);
     const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
-    const [hostProfile, setHostProfile] = useState<{ venmo_handle: string | null; cashapp_handle: string | null } | null>(null);
+    const [hostProfile, setHostProfile] = useState<{ 
+        venmo_handle: string | null; 
+        cashapp_handle: string | null;
+        zelle_handle: string | null;
+        apple_pay_handle: string | null;
+    } | null>(null);
     const [participantProfiles, setParticipantProfiles] = useState<ProfileMap>({});
 
     const hostId = bill?.host_id;
@@ -160,7 +172,7 @@ export default function PaymentScreen() {
                 if (billData.host_id) {
                     const { data: profile } = await supabase
                         .from('profiles')
-                        .select('venmo_handle, cashapp_handle')
+                        .select('venmo_handle, cashapp_handle, zelle_handle, apple_pay_handle')
                         .eq('id', billData.host_id)
                         .single();
                     if (profile) setHostProfile(profile);
@@ -250,36 +262,17 @@ export default function PaymentScreen() {
     };
 
     const handlePayApplePay = async () => {
+        if (!hostProfile?.apple_pay_handle) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        if (Platform.OS !== 'ios') {
-            Alert.alert('Not Available', 'Apple Pay is only available on iOS.');
-            return;
-        }
-        const supported = await isPlatformPaySupported();
-        if (!supported) {
-            Alert.alert('Apple Pay Not Available', 'Apple Pay is not set up on this device.');
-            return;
-        }
-        try {
-            const { error } = await createPlatformPayPaymentMethod({
-                applePay: {
-                    cartItems: [{
-                        label: 'Divvit - Bill Split',
-                        amount: myAmount.toFixed(2),
-                        paymentType: PlatformPay.PaymentType.Immediate,
-                    }],
-                    merchantCountryCode: 'US',
-                    currencyCode: 'USD',
-                },
-            });
-            if (error) {
-                if (error.code !== 'Canceled') Alert.alert('Payment Error', error.message);
-                return;
-            }
-            await doMarkAsSent('applepay');
-        } catch {
-            Alert.alert('Error', 'Apple Pay failed. Please try another method.');
-        }
+        await openAppleCash(hostProfile.apple_pay_handle, myAmount, `Divvit: ${bill?.title || 'Bill split'}`);
+        showDidYouPayDialog('applecash');
+    };
+
+    const handlePayZelle = async () => {
+        if (!hostProfile?.zelle_handle) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        await openZelle(hostProfile.zelle_handle);
+        showDidYouPayDialog('zelle');
     };
 
     const handlePayCash = async () => {
@@ -464,14 +457,26 @@ export default function PaymentScreen() {
                 onPress: handlePayVenmo,
             });
         }
-        paymentTiles.push({
-            key: 'applepay',
-            label: 'Tap-To-Pay',
-            subtitle: 'Apple Pay',
-            iconBg: '#FFF7ED',
-            icon: <Smartphone size={28} color="#FF5F00" />,
-            onPress: handlePayApplePay,
-        });
+        if (hostProfile?.apple_pay_handle) {
+            paymentTiles.push({
+                key: 'applecash',
+                label: 'Apple Cash',
+                subtitle: 'Pay via Messages',
+                iconBg: '#F3F4F6',
+                icon: <Smartphone size={28} color="#000000" />,
+                onPress: handlePayApplePay,
+            });
+        }
+        if (hostProfile?.zelle_handle) {
+            paymentTiles.push({
+                key: 'zelle',
+                label: 'Zelle',
+                subtitle: 'Bank Transfer',
+                iconBg: '#FAF5FF',
+                icon: <Zap size={28} color="#6D1ED4" />,
+                onPress: handlePayZelle,
+            });
+        }
         if (hostProfile?.cashapp_handle) {
             paymentTiles.push({
                 key: 'cashapp',

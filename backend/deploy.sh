@@ -21,12 +21,12 @@ gcloud run deploy $SERVICE_NAME \
   --region $REGION \
   --allow-unauthenticated
 
-# --- 3. INJECT SECRETS ---
-# This pulls the key from your local environment or you can hardcode it for this one-time setup
-# Ideally, ensure GEMINI_API_KEY is exported in your terminal before running this.
-echo "🔑 Injecting API Key..."
+# --- 3. SECRETS INJECTION ---
+# The GEMINI_API_KEY is now securely mounted from Google Cloud Secret Manager instead of plaintext env vars.
+# Ensure you have created a secret named GEMINI_API_KEY in your Google Cloud Console.
+echo "🔑 Mounting API Key from Secret Manager..."
 gcloud run services update $SERVICE_NAME \
-  --set-env-vars GEMINI_API_KEY=$GEMINI_API_KEY \
+  --update-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest \
   --region $REGION
 
 echo "✅ DONE! Your backend is live."

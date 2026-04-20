@@ -3,11 +3,12 @@ Receipt scanning endpoints.
 Handles file uploads and delegates to the Gemini service for AI processing.
 """
 
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, File, UploadFile, Request, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
 from app.services.gemini import GeminiService
+from app.core.security import limiter
 
 router = APIRouter()
 
@@ -29,7 +30,8 @@ class ScanResponse(BaseModel):
 
 
 @router.post("/scan")
-async def scan_receipt(file: UploadFile = File(...)):
+@limiter.limit("5/minute")
+async def scan_receipt(request: Request, file: UploadFile = File(...)):
     """
     Scan a receipt image and extract structured data.
 
