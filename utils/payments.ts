@@ -1,8 +1,12 @@
-import { Linking, Alert, Platform, Clipboard } from 'react-native';
+import { Linking, Alert, Platform, Clipboard } from 'react-native'; // NOTE: Clipboard from 'react-native' is deprecated. If expo-clipboard is installed, you can replace this with: import * as Clipboard from 'expo-clipboard';
+
+const VENMO_APP_STORE = 'https://apps.apple.com/app/venmo/id351727428';
+const VENMO_PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.venmo';
 
 /**
  * Opens Venmo app with pre-filled payment details.
- * Falls back to venmo.com if app is not installed.
+ * If the app is not installed, prompts the user to install it
+ * or continue to the Venmo website.
  */
 export async function openVenmo(
     handle: string,
@@ -15,13 +19,23 @@ export async function openVenmo(
 
     const deepLink = `venmo://paycharge?txn=pay&recipients=${cleanHandle}&amount=${formattedAmount}&note=${encodedNote}`;
     const webFallback = `https://venmo.com/${cleanHandle}`;
+    const storeLink = Platform.OS === 'ios' ? VENMO_APP_STORE : VENMO_PLAY_STORE;
 
     try {
         const canOpen = await Linking.canOpenURL(deepLink);
         if (canOpen) {
             await Linking.openURL(deepLink);
         } else {
-            await Linking.openURL(webFallback);
+            // App not installed — prompt to install or continue to web
+            Alert.alert(
+                'Venmo App Not Found',
+                `Install the Venmo app for the best experience. You can also pay @${cleanHandle} $${formattedAmount} on the Venmo website.`,
+                [
+                    { text: 'Install Venmo', onPress: () => Linking.openURL(storeLink) },
+                    { text: 'Continue to Website', onPress: () => Linking.openURL(webFallback) },
+                    { text: 'Cancel', style: 'cancel' },
+                ]
+            );
         }
     } catch (error) {
         console.error('Venmo link error:', error);
@@ -29,6 +43,7 @@ export async function openVenmo(
             'Cannot Open Venmo',
             `Please pay @${cleanHandle} $${formattedAmount} on Venmo.`,
             [
+                { text: 'Install Venmo', onPress: () => Linking.openURL(storeLink) },
                 { text: 'Open Venmo.com', onPress: () => Linking.openURL(webFallback) },
                 { text: 'OK' },
             ]
@@ -73,6 +88,8 @@ export async function openCashApp(
 /**
  * Opens Venmo app with a charge (request money) deep link.
  * Used by the host to request payment from a guest.
+ * If the app is not installed, prompts the user to install it
+ * or continue to the Venmo website.
  */
 export async function requestVenmo(
     handle: string,
@@ -85,13 +102,22 @@ export async function requestVenmo(
 
     const deepLink = `venmo://paycharge?txn=charge&recipients=${cleanHandle}&amount=${formattedAmount}&note=${encodedNote}`;
     const webFallback = `https://venmo.com/${cleanHandle}`;
+    const storeLink = Platform.OS === 'ios' ? VENMO_APP_STORE : VENMO_PLAY_STORE;
 
     try {
         const canOpen = await Linking.canOpenURL(deepLink);
         if (canOpen) {
             await Linking.openURL(deepLink);
         } else {
-            await Linking.openURL(webFallback);
+            Alert.alert(
+                'Venmo App Not Found',
+                `Install the Venmo app for the best experience. You can also request $${formattedAmount} from @${cleanHandle} on the Venmo website.`,
+                [
+                    { text: 'Install Venmo', onPress: () => Linking.openURL(storeLink) },
+                    { text: 'Continue to Website', onPress: () => Linking.openURL(webFallback) },
+                    { text: 'Cancel', style: 'cancel' },
+                ]
+            );
         }
     } catch (error) {
         console.error('Venmo request link error:', error);
@@ -99,6 +125,7 @@ export async function requestVenmo(
             'Cannot Open Venmo',
             `Please request $${formattedAmount} from @${cleanHandle} on Venmo.`,
             [
+                { text: 'Install Venmo', onPress: () => Linking.openURL(storeLink) },
                 { text: 'Open Venmo.com', onPress: () => Linking.openURL(webFallback) },
                 { text: 'OK' },
             ]
@@ -175,6 +202,7 @@ export async function openZelle(
     handle: string
 ): Promise<void> {
     // Copy handle to clipboard
+    // If you migrate to expo-clipboard, replace the line below with: await Clipboard.setStringAsync(handle);
     Clipboard.setString(handle);
 
     const gatewayUrl = 'https://www.zellepay.com/get-started';
