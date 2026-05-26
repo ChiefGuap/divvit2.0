@@ -84,7 +84,7 @@ export default function GroupLobbiesScreen() {
                     {/* Layer 1 — rotated +3deg, surface-container-low */}
                     <View style={{
                         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                        backgroundColor: '#e8ecf8', borderRadius: 40,
+                        backgroundColor: '#f1f3ff', borderRadius: 40,
                         transform: [{ rotate: '3deg' }],
                     }} />
                     {/* Layer 2 — rotated -3deg, primary tint */}
@@ -97,7 +97,7 @@ export default function GroupLobbiesScreen() {
                     <View style={{
                         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
                         borderRadius: 40, backgroundColor: '#ffffff',
-                        shadowColor: '#141b2b',
+                        shadowColor: '#111827',
                         shadowOffset: { width: 0, height: 10 },
                         shadowOpacity: 0.1, shadowRadius: 28,
                         elevation: 8,
@@ -191,12 +191,12 @@ export default function GroupLobbiesScreen() {
                                 </View>
                                 <View style={{
                                     width: 40, height: 40, borderRadius: 20,
-                                    backgroundColor: '#cec1ff',
+                                    backgroundColor: '#e5e7eb',
                                     alignItems: 'center', justifyContent: 'center',
                                     borderWidth: 2, borderColor: '#ffffff',
                                     marginLeft: -10, zIndex: 3,
                                 }}>
-                                    <Text style={{ color: '#574d82', fontSize: 11, fontWeight: '800' }}>AK</Text>
+                                    <Text style={{ color: '#484554', fontSize: 11, fontWeight: '800' }}>AK</Text>
                                 </View>
                                 <View style={{
                                     width: 40, height: 40, borderRadius: 20,
@@ -209,7 +209,7 @@ export default function GroupLobbiesScreen() {
                                 </View>
                                 <View style={{
                                     width: 40, height: 40, borderRadius: 20,
-                                    backgroundColor: '#dce2f7',
+                                    backgroundColor: '#e5e7eb',
                                     alignItems: 'center', justifyContent: 'center',
                                     borderWidth: 2, borderColor: '#ffffff',
                                     marginLeft: -10, zIndex: 1,
@@ -235,7 +235,7 @@ export default function GroupLobbiesScreen() {
                         fontSize: 36, fontWeight: '800', textAlign: 'center',
                         lineHeight: 44, letterSpacing: -0.5, marginBottom: 14,
                     }}>
-                        <Text style={{ color: '#141b2b' }}>Split with the </Text>
+                        <Text style={{ color: '#111827' }}>Split with the </Text>
                         <Text style={{ color: '#4b29b4' }}>Whole Squad</Text>
                     </Text>
                     <Text style={{
@@ -254,9 +254,9 @@ export default function GroupLobbiesScreen() {
             >
                 {/* Pagination dots */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#cac4d6' }} />
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#e5e7eb' }} />
                     <View style={{ width: 24, height: 8, borderRadius: 4, backgroundColor: '#4b29b4' }} />
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#cac4d6' }} />
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#e5e7eb' }} />
                 </View>
 
                 {/* Next button */}

@@ -14,7 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Utensils, Share2, CheckCircle } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
-import DivvitHeader from '@/components/DivvitHeader';
+import TabHeader from '@/components/TabHeader';
+import { getUserPoints } from '@/services/rewardsService';
 import { supabase } from '../../lib/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -46,6 +47,7 @@ type Bill = {
         items: BillItem[];
         tax: number;
         tip: number;
+        scannedTip?: number;
         subtotal: number;
         users: User[];
         assignments: Record<string, string[]>;
@@ -88,16 +90,16 @@ const ReceiptCard = ({ bill, onShare, paymentRequests = [] }: {
     paymentRequests: PaymentRequestRow[];
 }) => {
     const { details, created_at, total_amount, host_id } = bill;
-    const { items = [], tax = 0, tip = 0, subtotal = 0, users = [], userTotals = {}, paidStatus = [] } = details || {};
+    const { items = [], tax = 0, tip = 0, scannedTip = 0, subtotal = 0, users = [], userTotals = {}, paidStatus = [] } = details || {};
     const settled = getBillSettled(bill);
     const splitType = getSplitType(bill);
     const dateStr = formatDate(created_at);
     const computedSubtotal = subtotal || items.reduce((acc, i) => acc + i.price, 0);
 
     // FIX 2: Total with fallback
-    const displayTotal = (total_amount && total_amount > 0)
+    const displayTotal = (total_amount && total_amount > computedSubtotal)
         ? total_amount
-        : computedSubtotal + tax + tip;
+        : (computedSubtotal + tax + tip + scannedTip);
 
     // Helpers using bill_participants + payment_requests + details fallback
     const billParticipants = bill.bill_participants || [];
@@ -186,7 +188,7 @@ const ReceiptCard = ({ bill, onShare, paymentRequests = [] }: {
                 backgroundColor: '#ffffff',
                 borderRadius: 32,
                 padding: 32,
-                shadowColor: '#141b2b',
+                shadowColor: '#111827',
                 shadowOffset: { width: 0, height: 12 },
                 shadowOpacity: 0.06,
                 shadowRadius: 32,
@@ -202,7 +204,7 @@ const ReceiptCard = ({ bill, onShare, paymentRequests = [] }: {
                     }}>
                         <Utensils size={32} color="#ffffff" />
                     </View>
-                    <Text style={{ fontSize: 28, fontWeight: '800', color: '#141b2b', letterSpacing: -0.5, marginBottom: 4 }}>
+                    <Text style={{ fontSize: 28, fontWeight: '800', color: '#111827', letterSpacing: -0.5, marginBottom: 4 }}>
                         Shared Bill
                     </Text>
                     <Text style={{ fontSize: 14, color: '#484554', fontWeight: '500', marginBottom: 16 }}>
@@ -236,25 +238,25 @@ const ReceiptCard = ({ bill, onShare, paymentRequests = [] }: {
                     {items.map((item, idx) => (
                         <View key={item?.id ? `item-${item.id}` : `item-${idx}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: idx < items.length - 1 ? 16 : 24 }}>
                             <View style={{ flex: 1, marginRight: 16 }}>
-                                <Text style={{ fontWeight: '700', color: '#141b2b', fontSize: 14 }}>{item?.name || 'Item'}</Text>
+                                <Text style={{ fontWeight: '700', color: '#111827', fontSize: 14 }}>{item?.name || 'Item'}</Text>
                                 <Text style={{ fontSize: 12, color: '#484554', marginTop: 2 }}>1 × ${(item?.price ?? 0).toFixed(2)}</Text>
                             </View>
-                            <Text style={{ fontWeight: '700', color: '#141b2b', fontSize: 14 }}>${(item?.price ?? 0).toFixed(2)}</Text>
+                            <Text style={{ fontWeight: '700', color: '#111827', fontSize: 14 }}>${(item?.price ?? 0).toFixed(2)}</Text>
                         </View>
                     ))}
 
                     {/* Dashed divider */}
-                    <View style={{ height: 1, borderWidth: 1, borderColor: '#cac4d6', borderStyle: 'dashed', marginBottom: 20 }} />
+                    <View style={{ height: 1, borderWidth: 1, borderColor: '#e5e7eb', borderStyle: 'dashed', marginBottom: 20 }} />
 
                     {/* Totals */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
                         <Text style={{ color: '#484554', fontWeight: '500', fontSize: 14 }}>Subtotal</Text>
                         <Text style={{ color: '#484554', fontWeight: '700', fontSize: 14 }}>${computedSubtotal.toFixed(2)}</Text>
                     </View>
-                    {tip > 0 && (
+                    {scannedTip > 0 && (
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
                             <Text style={{ color: '#484554', fontWeight: '500', fontSize: 14 }}>Service Charge</Text>
-                            <Text style={{ color: '#484554', fontWeight: '700', fontSize: 14 }}>${tip.toFixed(2)}</Text>
+                            <Text style={{ color: '#484554', fontWeight: '700', fontSize: 14 }}>${scannedTip.toFixed(2)}</Text>
                         </View>
                     )}
                     {tax > 0 && (
@@ -263,9 +265,15 @@ const ReceiptCard = ({ bill, onShare, paymentRequests = [] }: {
                             <Text style={{ color: '#484554', fontWeight: '700', fontSize: 14 }}>${tax.toFixed(2)}</Text>
                         </View>
                     )}
+                    {tip > 0 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <Text style={{ color: '#484554', fontWeight: '500', fontSize: 14 }}>Tip</Text>
+                            <Text style={{ color: '#484554', fontWeight: '700', fontSize: 14 }}>${tip.toFixed(2)}</Text>
+                        </View>
+                    )}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12 }}>
-                        <Text style={{ fontSize: 20, fontWeight: '900', color: '#141b2b' }}>Total</Text>
-                        <Text style={{ fontSize: 28, fontWeight: '900', color: '#4b29b4' }}>${displayTotal.toFixed(2)}</Text>
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>Total</Text>
+                        <Text style={{ fontSize: 28, fontWeight: '800', color: '#4b29b4' }}>${displayTotal.toFixed(2)}</Text>
                     </View>
                 </View>
             </View>
@@ -322,7 +330,7 @@ const ReceiptCard = ({ bill, onShare, paymentRequests = [] }: {
                             flexDirection: 'row',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            shadowColor: '#141b2b',
+                            shadowColor: '#111827',
                             shadowOffset: { width: 0, height: 1 },
                             shadowOpacity: 0.05,
                             shadowRadius: 4,
@@ -343,14 +351,14 @@ const ReceiptCard = ({ bill, onShare, paymentRequests = [] }: {
                                     </Text>
                                 </View>
                                 <View>
-                                    <Text style={{ fontWeight: '800', color: '#141b2b', fontSize: 14 }}>{u.name}</Text>
+                                    <Text style={{ fontWeight: '800', color: '#111827', fontSize: 14 }}>{u.name}</Text>
                                     <Text style={{ fontSize: 10, fontWeight: '700', color: '#484554', marginTop: 2 }}>
                                         {statusLabel}
                                     </Text>
                                 </View>
                             </View>
                             <View style={{ alignItems: 'flex-end' }}>
-                                <Text style={{ fontWeight: '900', color: '#4b29b4', fontSize: 15 }}>
+                                <Text style={{ fontWeight: '800', color: '#4b29b4', fontSize: 15 }}>
                                     ${amount.toFixed(2)}
                                 </Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}>
@@ -400,7 +408,7 @@ const DotsIndicator = ({ count, activeIndex }: { count: number; activeIndex: num
                 width: i === activeIndex ? 20 : 6,
                 height: 6,
                 borderRadius: 3,
-                backgroundColor: i === activeIndex ? '#4b29b4' : '#cac4d6',
+                backgroundColor: i === activeIndex ? '#4b29b4' : '#e5e7eb',
             }} />
         ))}
     </View>
@@ -412,11 +420,11 @@ const EmptyState = () => (
         <View style={{
             width: 80, height: 80, borderRadius: 40,
             backgroundColor: '#f1f3ff', alignItems: 'center', justifyContent: 'center',
-            marginBottom: 20, borderWidth: 1, borderColor: '#dce2f7',
+            marginBottom: 20, borderWidth: 1, borderColor: '#e5e7eb',
         }}>
             <Utensils size={32} color="#9CA3AF" />
         </View>
-        <Text style={{ color: '#141b2b', fontWeight: '800', fontSize: 18, textAlign: 'center', marginBottom: 8 }}>
+        <Text style={{ color: '#111827', fontWeight: '800', fontSize: 18, textAlign: 'center', marginBottom: 8 }}>
             No receipts yet
         </Text>
         <Text style={{ color: '#484554', fontSize: 14, textAlign: 'center' }}>
@@ -430,12 +438,12 @@ const SkeletonCard = () => (
     <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 20, paddingTop: 8 }}>
         <View style={{
             backgroundColor: '#ffffff', borderRadius: 32, padding: 32,
-            shadowColor: '#141b2b', shadowOffset: { width: 0, height: 12 },
+            shadowColor: '#111827', shadowOffset: { width: 0, height: 12 },
             shadowOpacity: 0.06, shadowRadius: 32, elevation: 4,
         }}>
             <View style={{ alignItems: 'center', marginBottom: 24 }}>
-                <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: '#e9edff', marginBottom: 12 }} />
-                <View style={{ width: 140, height: 24, backgroundColor: '#e9edff', borderRadius: 8, marginBottom: 8 }} />
+                <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: '#f1f3ff', marginBottom: 12 }} />
+                <View style={{ width: 140, height: 24, backgroundColor: '#f1f3ff', borderRadius: 8, marginBottom: 8 }} />
                 <View style={{ width: 100, height: 14, backgroundColor: '#f1f3ff', borderRadius: 6 }} />
             </View>
             {[1, 2, 3].map(i => (
@@ -457,15 +465,29 @@ export default function HistoryScreen() {
     const [activeIndex, setActiveIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
 
+    const [userPoints, setUserPoints] = useState(0);
+
+    useEffect(() => {
+        const fetchPoints = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const pts = await getUserPoints(user.id);
+                setUserPoints(pts);
+            }
+        };
+        fetchPoints();
+    }, []);
+
     const handleShare = useCallback(async (bill: Bill) => {
         try {
             const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             const d = new Date(bill.created_at);
             const dateStr = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
             const { details, total_amount } = bill;
-            const displayTotal = (total_amount && total_amount > 0)
+            const computedSubtotal = details?.subtotal || 0;
+            const displayTotal = (total_amount && total_amount > computedSubtotal)
                 ? total_amount
-                : ((details?.subtotal || 0) + (details?.tax || 0) + (details?.tip || 0));
+                : ((details?.subtotal || 0) + (details?.tax || 0) + (details?.tip || 0) + (details?.scannedTip || 0));
             const total = `$${displayTotal.toFixed(2)}`;
             const scheme = __DEV__ ? 'divvit-dev' : 'divvit';
             await Share.share({
@@ -551,7 +573,7 @@ export default function HistoryScreen() {
     if (isAuthLoading || isLoading) {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top']}>
-                <DivvitHeader />
+                <TabHeader points={userPoints} />
                 <SkeletonCard />
             </SafeAreaView>
         );
@@ -568,7 +590,7 @@ export default function HistoryScreen() {
     if (bills.length === 0) {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top']}>
-                <DivvitHeader />
+                <TabHeader points={userPoints} />
                 <EmptyState />
             </SafeAreaView>
         );
@@ -576,7 +598,7 @@ export default function HistoryScreen() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top']}>
-            <DivvitHeader />
+            <TabHeader points={userPoints} />
             <FlatList
                 ref={flatListRef}
                 data={bills}

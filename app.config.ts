@@ -25,11 +25,19 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ios: {
             supportsTablet: true,
             bundleIdentifier,
-            buildNumber: '16',
+            buildNumber: '20',
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false,
                 NSCameraUsageDescription: 'Divvit needs camera access to take group photos after splitting a bill.',
                 NSPhotoLibraryUsageDescription: 'Divvit needs photo library access to save group photos.',
+                LSApplicationQueriesSchemes: [
+                    'venmo',
+                    'cashme',
+                    'zelle',
+                    'paypal',
+                    'square-cash',
+                    'applePay',
+                ],
             },
         },
         android: {

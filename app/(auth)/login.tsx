@@ -223,7 +223,7 @@ export default function Login() {
                         alignItems: 'center', marginBottom: 28, paddingHorizontal: 24,
                     }}>
                         <Text style={{
-                            fontSize: 32, fontWeight: '800', color: '#141b2b',
+                            fontSize: 32, fontWeight: '800', color: '#111827',
                             textAlign: 'center', letterSpacing: -0.5, marginBottom: 8,
                         }}>
                             Welcome back
@@ -243,7 +243,7 @@ export default function Login() {
                         backgroundColor: '#ffffff',
                         borderRadius: 32,
                         padding: 28,
-                        shadowColor: '#141b2b',
+                        shadowColor: '#111827',
                         shadowOffset: { width: 0, height: 12 },
                         shadowOpacity: 0.06, shadowRadius: 32,
                         elevation: 6,
@@ -264,14 +264,14 @@ export default function Login() {
                                 borderWidth: emailFocused ? 1.5 : 0,
                                 borderColor: emailFocused ? '#4b29b4' : 'transparent',
                             }}>
-                                <Mail size={20} color="#797585" strokeWidth={2} />
+                                <Mail size={20} color="#9ca3af" strokeWidth={2} />
                                 <TextInput
                                     style={{
                                         flex: 1, marginLeft: 12,
-                                        fontSize: 15, color: '#141b2b',
+                                        fontSize: 15, color: '#111827',
                                     }}
                                     placeholder="name@example.com"
-                                    placeholderTextColor="#797585"
+                                    placeholderTextColor="#9ca3af"
                                     keyboardType="email-address"
                                     autoCapitalize="none"
                                     value={email}
@@ -307,14 +307,14 @@ export default function Login() {
                                 borderWidth: passwordFocused ? 1.5 : 0,
                                 borderColor: passwordFocused ? '#4b29b4' : 'transparent',
                             }}>
-                                <Lock size={20} color="#797585" strokeWidth={2} />
+                                <Lock size={20} color="#9ca3af" strokeWidth={2} />
                                 <TextInput
                                     style={{
                                         flex: 1, marginLeft: 12,
-                                        fontSize: 15, color: '#141b2b',
+                                        fontSize: 15, color: '#111827',
                                     }}
                                     placeholder="••••••••"
-                                    placeholderTextColor="#797585"
+                                    placeholderTextColor="#9ca3af"
                                     secureTextEntry={!showPassword}
                                     value={password}
                                     onChangeText={(t) => { setPassword(t); setError(null); }}
@@ -327,8 +327,8 @@ export default function Login() {
                                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                 >
                                     {showPassword
-                                        ? <EyeOff size={20} color="#797585" strokeWidth={2} />
-                                        : <Eye size={20} color="#797585" strokeWidth={2} />
+                                        ? <EyeOff size={20} color="#9ca3af" strokeWidth={2} />
+                                        : <Eye size={20} color="#9ca3af" strokeWidth={2} />
                                     }
                                 </TouchableOpacity>
                             </View>
@@ -337,7 +337,7 @@ export default function Login() {
                         {/* Error message */}
                         {error && (
                             <Text style={{
-                                fontSize: 13, color: '#ba1a1a', textAlign: 'center',
+                                fontSize: 13, color: '#dc2626', textAlign: 'center',
                                 marginTop: 12, marginBottom: -4,
                             }}>
                                 {error}
@@ -378,15 +378,15 @@ export default function Login() {
                             flexDirection: 'row', alignItems: 'center',
                             marginVertical: 24,
                         }}>
-                            <View style={{ flex: 1, height: 1, backgroundColor: '#cac4d6', opacity: 0.35 }} />
+                            <View style={{ flex: 1, height: 1, backgroundColor: '#e5e7eb', opacity: 0.35 }} />
                             <Text style={{
-                                fontSize: 11, fontWeight: '700', color: '#797585',
+                                fontSize: 11, fontWeight: '700', color: '#9ca3af',
                                 letterSpacing: 2, textTransform: 'uppercase',
                                 paddingHorizontal: 16,
                             }}>
                                 OR
                             </Text>
-                            <View style={{ flex: 1, height: 1, backgroundColor: '#cac4d6', opacity: 0.35 }} />
+                            <View style={{ flex: 1, height: 1, backgroundColor: '#e5e7eb', opacity: 0.35 }} />
                         </View>
 
                         {/* E — Social buttons */}
@@ -404,7 +404,7 @@ export default function Login() {
                                 }}
                             >
                                 <GoogleIcon />
-                                <Text style={{ fontSize: 15, fontWeight: '600', color: '#141b2b' }}>
+                                <Text style={{ fontSize: 15, fontWeight: '600', color: '#111827' }}>
                                     Continue with Google
                                 </Text>
                             </TouchableOpacity>
@@ -416,7 +416,7 @@ export default function Login() {
                                     activeOpacity={0.85}
                                     style={{
                                         height: 56, borderRadius: 999,
-                                        backgroundColor: '#141b2b',
+                                        backgroundColor: '#111827',
                                         flexDirection: 'row', alignItems: 'center',
                                         justifyContent: 'center', gap: 12,
                                     }}

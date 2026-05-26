@@ -20,9 +20,9 @@ export const ScanButton = ({ onPress }: ScanButtonProps) => {
             onPress={handlePress}
         >
             <LinearGradient
-                colors={['#8A2BE2', '#6A0DAD']} // Purple gradient approximation
+                colors={['#6346cd', '#4b29b4']} // Purple gradient approximation
                 // Using approximate hex codes because tailwind gradient support might vary or require config.
-                // But since we have divvit-secondary #B54CFF, let's try to use that if possible or fall back to this.
+                // But since we have divvit-secondary #6346cd, let's try to use that if possible or fall back to this.
                 // Actually, let's use the explicit colors to match the "Purple gradient background" requirement closely.
                 // The design shows a rich purple.
                 className="w-full h-full justify-center items-center"

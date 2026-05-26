@@ -9,11 +9,11 @@ interface ManualScanButtonProps {
 export const ManualScanButton = ({ onPress }: ManualScanButtonProps) => {
     return (
         <TouchableOpacity
-            className="flex-row items-center w-full bg-[#E8D9FF] p-4 rounded-2xl mb-4 active:opacity-80"
+            className="flex-row items-center w-full bg-[#f1f3ff] p-4 rounded-2xl mb-4 active:opacity-80"
             onPress={onPress}
         >
             <View className="mr-4">
-                <Receipt color="#1A1A1A" size={32} />
+                <Receipt color="#111827" size={32} />
             </View>
             <View>
                 <Text className="text-divvit-dark text-lg font-heading font-bold">Manual Scan</Text>

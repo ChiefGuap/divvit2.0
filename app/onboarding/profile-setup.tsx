@@ -173,7 +173,7 @@ export default function ProfileSetupScreen() {
                 {/* Headline */}
                 <View style={{ paddingHorizontal: 24, marginTop: 28, marginBottom: 32 }}>
                     <Text style={{
-                        fontSize: 30, fontWeight: '800', color: '#141b2b',
+                        fontSize: 30, fontWeight: '800', color: '#111827',
                         letterSpacing: -0.5, marginBottom: 8,
                     }}>
                         Set up your profile
@@ -194,7 +194,7 @@ export default function ProfileSetupScreen() {
                             width: 112, height: 112, borderRadius: 56,
                             overflow: 'hidden',
                             borderWidth: 4, borderColor: '#ffffff',
-                            shadowColor: '#141b2b',
+                            shadowColor: '#111827',
                             shadowOffset: { width: 0, height: 8 },
                             shadowOpacity: 0.08, shadowRadius: 20,
                             elevation: 8,
@@ -227,7 +227,7 @@ export default function ProfileSetupScreen() {
                                 backgroundColor: '#4b29b4',
                                 alignItems: 'center', justifyContent: 'center',
                                 borderWidth: 2, borderColor: '#ffffff',
-                                shadowColor: '#141b2b',
+                                shadowColor: '#111827',
                                 shadowOffset: { width: 0, height: 4 },
                                 shadowOpacity: 0.2, shadowRadius: 8,
                                 elevation: 4,
@@ -264,7 +264,7 @@ export default function ProfileSetupScreen() {
                             @
                         </Text>
                         <TextInput
-                            style={{ flex: 1, fontSize: 16, fontWeight: '600', color: '#141b2b' }}
+                            style={{ flex: 1, fontSize: 16, fontWeight: '600', color: '#111827' }}
                             placeholder="yourname"
                             placeholderTextColor="rgba(72,69,84,0.5)"
                             autoCapitalize="none"
@@ -286,7 +286,7 @@ export default function ProfileSetupScreen() {
                         backgroundColor: '#f1f3ff', borderRadius: 24, padding: 20,
                         flexDirection: 'row', alignItems: 'center',
                         justifyContent: 'space-between',
-                        shadowColor: '#141b2b',
+                        shadowColor: '#111827',
                         shadowOffset: { width: 0, height: 4 },
                         shadowOpacity: 0.04, shadowRadius: 16,
                         elevation: 2, marginBottom: 12,
@@ -298,10 +298,10 @@ export default function ProfileSetupScreen() {
                                 alignItems: 'center', justifyContent: 'center',
                                 flexShrink: 0,
                             }}>
-                                <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900' }}>V</Text>
+                                <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '800' }}>V</Text>
                             </View>
                             <View>
-                                <Text style={{ fontSize: 15, fontWeight: '700', color: '#141b2b', marginBottom: 2 }}>
+                                <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 }}>
                                     Venmo
                                 </Text>
                                 <Text style={{ fontSize: 12, color: '#484554' }}>
@@ -327,7 +327,7 @@ export default function ProfileSetupScreen() {
                         backgroundColor: '#f1f3ff', borderRadius: 24, padding: 20,
                         flexDirection: 'row', alignItems: 'center',
                         justifyContent: 'space-between',
-                        shadowColor: '#141b2b',
+                        shadowColor: '#111827',
                         shadowOffset: { width: 0, height: 4 },
                         shadowOpacity: 0.04, shadowRadius: 16,
                         elevation: 2,
@@ -339,10 +339,10 @@ export default function ProfileSetupScreen() {
                                 alignItems: 'center', justifyContent: 'center',
                                 flexShrink: 0,
                             }}>
-                                <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '900' }}>$</Text>
+                                <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '800' }}>$</Text>
                             </View>
                             <View>
-                                <Text style={{ fontSize: 15, fontWeight: '700', color: '#141b2b', marginBottom: 2 }}>
+                                <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 }}>
                                     Cash App
                                 </Text>
                                 <Text style={{ fontSize: 12, color: '#484554' }}>
@@ -394,7 +394,7 @@ export default function ProfileSetupScreen() {
                         disabled={loading}
                         activeOpacity={0.7}
                     >
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#141b2b' }}>Skip</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Skip</Text>
                     </TouchableOpacity>
 
                     {/* Continue */}

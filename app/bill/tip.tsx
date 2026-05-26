@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Keyboard, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Keyboard, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ArrowLeft, Users } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 import {
     getBill,
     getBillItems,
@@ -18,6 +19,7 @@ import {
 import { BillItem as SyncBillItem, Participant } from '../../types';
 
 // Import our new components
+import DivvitLogo from '../../components/DivvitLogo';
 import TotalsCard from '../../components/bill/tip/TotalsCard';
 import ContextCard from '../../components/bill/tip/ContextCard';
 import TipSelection from '../../components/bill/tip/TipSelection';
@@ -173,13 +175,12 @@ export default function TipScreen() {
     const [customTip, setCustomTip] = useState('');
     const [hasAutoSkipped, setHasAutoSkipped] = useState(false);
     
-    // Defaulting base to pre since toggle is removed in new design
-    // Keeping state to avoid breaking Logic
-    const [tipBase, setTipBase] = useState<'pre' | 'post'>('pre');
+    // Tip base toggle: pre-tax (subtotal only) or post-tax (subtotal + tax)
+    const [tipBase, setTipBase] = useState<'pre-tax' | 'post-tax'>('pre-tax');
     const [isScannedTipActive, setIsScannedTipActive] = useState(false);
 
     // The base amount used for percentage tip calculations
-    const tipBaseAmount = tipBase === 'pre' ? subtotal : subtotal + tax;
+    const tipBaseAmount = tipBase === 'pre-tax' ? subtotal : subtotal + tax;
 
     // Pre-fill from scanned tip on mount, and auto-skip to checkout if tip was already on receipt
     useEffect(() => {
@@ -353,8 +354,25 @@ export default function TipScreen() {
                     shares[p.id] += (detailTax + tipAmount) * proportion;
                 });
 
-                // Save tip to bill
-                await updateBillTip(billId, tipAmount);
+                // Save tip, subtotal, tax, total, and complete the bill in database atomically
+                const totalAmountVal = subtotal + tax + tipAmount;
+                const { error: billUpdateError } = await supabase
+                    .from('bills')
+                    .update({
+                        total_amount: totalAmountVal,
+                        status: 'completed',
+                        details: {
+                            ...billData.details,
+                            tip: tipAmount,
+                            tip_base: tipBase,
+                            subtotal: subtotal,
+                            tax: tax,
+                            total: totalAmountVal,
+                        }
+                    })
+                    .eq('id', billId);
+
+                if (billUpdateError) throw billUpdateError;
 
                 // Create payment requests for non-host participants with auth user_ids
                 const paymentParticipants = partyParticipants
@@ -367,9 +385,6 @@ export default function TipScreen() {
                 if (paymentParticipants.length > 0) {
                     await createPaymentRequests(billId, hostId!, paymentParticipants);
                 }
-
-                // Update status to completed → triggers guest navigation via realtime
-                await updateBillStatus(billId, 'completed');
 
                 // Host navigates to payment screen
                 router.push({
@@ -419,6 +434,7 @@ export default function TipScreen() {
                 billData: JSON.stringify({
                     items: itemsWithTip,
                     tip: tipAmount,
+                    tip_base: tipBase,
                     tax: tax,
                     total: total,
                     subtotal: subtotal
@@ -444,7 +460,7 @@ export default function TipScreen() {
             <SafeAreaView className="flex-1 bg-surface" style={{ alignItems: 'center', justifyContent: 'center' }} edges={['top']}>
                 <Stack.Screen options={{ headerShown: false }} />
                 <ActivityIndicator size="large" color="#4b29b4" />
-                <Text style={{ color: '#484554', marginTop: 16, fontWeight: '500' }}>Loading tip details...</Text>
+                <Text style={{ color: '#484554', marginTop: 16, fontWeight: '500', fontFamily: 'Outfit' }}>Loading tip details...</Text>
             </SafeAreaView>
         );
     }
@@ -461,18 +477,18 @@ export default function TipScreen() {
                     >
                         <ArrowLeft color="#6346cd" size={24} />
                     </TouchableOpacity>
-                    <Text className="font-heading font-extrabold tracking-tighter text-2xl text-primary">Divvit</Text>
+                    <DivvitLogo />
                     <View className="w-10" />
                 </View>
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
                     <View style={{
                         width: 80, height: 80, borderRadius: 40,
-                        backgroundColor: '#e9edff', alignItems: 'center', justifyContent: 'center',
+                        backgroundColor: '#f1f3ff', alignItems: 'center', justifyContent: 'center',
                         marginBottom: 16,
                     }}>
                         <Users size={36} color="#4b29b4" />
                     </View>
-                    <Text style={{ fontSize: 20, fontWeight: '800', color: '#141b2b', marginBottom: 6, textAlign: 'center' }}>
+                    <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 6, textAlign: 'center' }}>
                         Waiting for Host
                     </Text>
                     <Text style={{ fontSize: 14, color: '#484554', textAlign: 'center', fontWeight: '500' }}>
@@ -495,7 +511,7 @@ export default function TipScreen() {
                 >
                     <ArrowLeft color="#6346cd" size={24} />
                 </TouchableOpacity>
-                <Text className="font-heading font-extrabold tracking-tighter text-2xl text-primary">Divvit</Text>
+                <DivvitLogo />
                 
                 {/* Current User Avatar Placeholder */}
                 <View className="w-10 h-10 rounded-full overflow-hidden bg-surface-container border-2 border-primary/20">
@@ -532,18 +548,33 @@ export default function TipScreen() {
                     />
                 </View>
 
-                {/* No Tip / Settings Toggle */}
-                <View className="flex-row items-center justify-between mb-2 px-2">
-                    <TouchableOpacity onPress={handleNoTipToggle} className="flex-row items-center">
-                        <View className={`w-5 h-5 rounded border-2 items-center justify-center mr-2 ${noTip ? 'bg-primary border-primary' : 'border-gray-300'}`}>
+                {/* No Tip / Tip Base Toggle Row */}
+                <View style={tipStyles.noTipRow}>
+                    <TouchableOpacity onPress={handleNoTipToggle} style={tipStyles.noTipLeft}>
+                        <View className={`w-5 h-5 rounded border-2 items-center justify-center ${noTip ? 'bg-primary border-primary' : 'border-gray-300'}`}>
                            {noTip && <View className="w-2.5 h-2.5 bg-white rounded-sm" />}
                         </View>
                         <Text className="text-sm font-medium text-on-surface">No Tip</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setTipBase(tipBase === 'pre' ? 'post' : 'pre')} disabled={noTip} className="flex-row items-center">
-                         <Text className="text-xs text-on-surface-variant opacity-60">
-                             Base: {tipBase === 'pre' ? 'Pre-tax' : 'Post-tax'}
-                         </Text>
+
+                    {/* Pre-tax / Post-tax toggle */}
+                    <TouchableOpacity
+                        onPress={() => {
+                            Haptics.selectionAsync();
+                            setTipBase(prev => prev === 'pre-tax' ? 'post-tax' : 'pre-tax');
+                        }}
+                        style={tipStyles.tipBaseToggle}
+                        activeOpacity={0.7}
+                        disabled={noTip}
+                    >
+                        <View style={[tipStyles.tipBaseTrack, noTip && { opacity: 0.4 }]}>
+                            <View style={[tipStyles.tipBaseOption, tipBase === 'pre-tax' && tipStyles.tipBaseOptionActive]}>
+                                <Text style={[tipStyles.tipBaseOptionText, tipBase === 'pre-tax' && tipStyles.tipBaseOptionTextActive]}>Pre-tax</Text>
+                            </View>
+                            <View style={[tipStyles.tipBaseOption, tipBase === 'post-tax' && tipStyles.tipBaseOptionActive]}>
+                                <Text style={[tipStyles.tipBaseOptionText, tipBase === 'post-tax' && tipStyles.tipBaseOptionTextActive]}>Post-tax</Text>
+                            </View>
+                        </View>
                     </TouchableOpacity>
                 </View>
 
@@ -558,6 +589,16 @@ export default function TipScreen() {
                     tipPercentages={TIP_PERCENTAGES}
                 />
 
+                {/* Tip base info line */}
+                {!noTip && (
+                    <Text style={tipStyles.tipBaseInfo}>
+                        {tipBase === 'pre-tax'
+                            ? `Tip calculated on subtotal ($${subtotal.toFixed(2)})`
+                            : `Tip calculated on subtotal + tax ($${(subtotal + tax).toFixed(2)})`
+                        }
+                    </Text>
+                )}
+
                 <FinalCalculationSurface 
                     tipLabel={tipLabel}
                     tipAmount={tipAmount}
@@ -568,3 +609,54 @@ export default function TipScreen() {
         </SafeAreaView>
     );
 }
+
+// ─── Tip Screen Styles ───
+const tipStyles = StyleSheet.create({
+    noTipRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+        paddingHorizontal: 8,
+    },
+    noTipLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    tipBaseToggle: {
+        alignSelf: 'flex-end',
+    },
+    tipBaseTrack: {
+        flexDirection: 'row',
+        backgroundColor: '#f1f3ff',
+        borderRadius: 999,
+        padding: 3,
+        gap: 2,
+    },
+    tipBaseOption: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+    },
+    tipBaseOptionActive: {
+        backgroundColor: '#6346cd',
+    },
+    tipBaseOptionText: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#484554',
+        fontFamily: 'Outfit',
+    },
+    tipBaseOptionTextActive: {
+        color: '#ffffff',
+    },
+    tipBaseInfo: {
+        fontSize: 11,
+        color: '#484554',
+        textAlign: 'center',
+        marginTop: 8,
+        fontFamily: 'Outfit',
+        fontStyle: 'italic',
+    },
+});

@@ -413,7 +413,7 @@ export default function CheckoutScreen() {
                             activeOpacity={0.85}
                             className="bg-divvit-secondary py-4 px-6 rounded-2xl flex-row items-center justify-center"
                             style={{
-                                shadowColor: '#B54CFF',
+                                shadowColor: '#6346cd',
                                 shadowOffset: { width: 0, height: 4 },
                                 shadowOpacity: 0.3,
                                 shadowRadius: 12,

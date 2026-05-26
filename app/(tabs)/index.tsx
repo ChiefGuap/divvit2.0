@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react';
-import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import React, { useCallback, useState, useEffect } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Pencil, Trash2, FileText } from 'lucide-react-native';
@@ -9,7 +10,9 @@ import { getInitials, getNextColor } from '../../types';
 import { useHomeStats } from '@/hooks/useHomeStats';
 import { useAuth } from '@/context/AuthContext';
 
-import DivvitHeader from '@/components/DivvitHeader';
+import TabHeader from '@/components/TabHeader';
+import { supabase } from '../../lib/supabase';
+import { getUserPoints } from '@/services/rewardsService';
 import { MetricStats } from '@/components/home/MetricStats';
 import { DashboardActions } from '@/components/home/DashboardActions';
 import { PromotionCard } from '@/components/home/PromotionCard';
@@ -78,7 +81,20 @@ const DraftCard = ({
 export default function HomeScreen() {
   const router = useRouter();
   const { isLoading: isAuthLoading, session, user, profile } = useAuth();
-  const { points, totalSplit, minutesSaved, recentActivity, drafts, isLoading, deleteDraft, refetch } = useHomeStats();
+  const { totalSplit, minutesSaved, recentActivity, drafts, isLoading, deleteDraft, refetch } = useHomeStats();
+
+  const [userPoints, setUserPoints] = useState(0);
+
+  useEffect(() => {
+    const fetchPoints = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const pts = await getUserPoints(user.id);
+        setUserPoints(pts);
+      }
+    };
+    fetchPoints();
+  }, []);
 
   // Refetch drafts when screen is focused (e.g., returning from draft save)
   useFocusEffect(
@@ -91,7 +107,7 @@ export default function HomeScreen() {
   // This prevents flash of empty/mock data on web reload
   if (isAuthLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-background justify-center items-center">
+      <SafeAreaView className="flex-1 bg-background justify-center items-center" style={{ flex: 1 }}>
         <ActivityIndicator size="large" color="#4b29b4" />
         <Text className="text-on-surface-variant font-body text-sm mt-4">Loading...</Text>
       </SafeAreaView>
@@ -101,7 +117,7 @@ export default function HomeScreen() {
   // If auth finished but no session, show nothing (NavigationController will redirect)
   if (!session) {
     return (
-      <SafeAreaView className="flex-1 bg-background justify-center items-center">
+      <SafeAreaView className="flex-1 bg-background justify-center items-center" style={{ flex: 1 }}>
         <ActivityIndicator size="large" color="#4b29b4" />
       </SafeAreaView>
     );
@@ -179,11 +195,11 @@ export default function HomeScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Navigate to Party Screen
+      // Navigate to Party Size Screen
       router.push({
-        pathname: '/bill/party',
+        pathname: '/bill/party-size',
         params: {
-          id: billId,
+          billId: billId,
           isManualEntry: 'true',
         }
       });
@@ -271,8 +287,8 @@ export default function HomeScreen() {
   const firstName = profile?.username?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <DivvitHeader />
+    <SafeAreaView className="flex-1 bg-background" style={{ flex: 1 }}>
+      <TabHeader points={userPoints} />
       
       <ScrollView className="flex-1 px-6 pt-2" showsVerticalScrollIndicator={false}>
         
@@ -281,7 +297,7 @@ export default function HomeScreen() {
           <Text className="text-3xl font-heading font-extrabold tracking-tight text-on-surface mb-1">
             Hey, {firstName}
           </Text>
-          <Text className="text-on-surface-variant font-body font-medium">Ready to settle up?</Text>
+          <Text className="text-on-surface-variant font-body font-medium">Are you ready to Divvit?</Text>
         </View>
 
         {/* Top Metrics */}

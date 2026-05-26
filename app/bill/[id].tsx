@@ -18,6 +18,7 @@ import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler'
 import { ArrowLeft, Check, ArrowRight, Plus, Trash2, Save, Shuffle, Users, X, Columns } from 'lucide-react-native';
 import * as Crypto from 'expo-crypto';
 import { useAuth } from '../../context/AuthContext';
+import DivvitLogo from '../../components/DivvitLogo';
 import { supabase } from '../../lib/supabase';
 import {
     getBillItems,
@@ -188,7 +189,7 @@ export default function BillEditorScreen() {
                         id: p.id,
                         name: p.name,
                         avatar: p.avatar_url || `https://i.pravatar.cc/150?u=${p.id}`,
-                        color: p.color || '#B54CFF',
+                        color: p.color || '#6346cd',
                         initials: p.initials || p.name.slice(0, 2).toUpperCase(),
                     }));
                     setLoadedUsers(usersFromDB);
@@ -266,7 +267,7 @@ export default function BillEditorScreen() {
                     id: newParticipant.id,
                     name: newParticipant.name,
                     avatar: newParticipant.avatar_url || `https://i.pravatar.cc/150?u=${newParticipant.id}`,
-                    color: newParticipant.color || '#B54CFF',
+                    color: newParticipant.color || '#6346cd',
                     initials: newParticipant.initials || newParticipant.name.slice(0, 2).toUpperCase(),
                 }];
             });
@@ -405,6 +406,7 @@ export default function BillEditorScreen() {
             const created = await createBillItems(id, [{ name: '', price: 0, quantity: 1 }]);
             if (created.length > 0) {
                 setSyncItems(prev => [...prev, created[0]]);
+                setItems(prev => [...prev, { id: created[0].id, name: '', price: 0 }]);
             }
         } catch (err) {
             console.error('BillEditor: Failed to add item:', err);
@@ -447,13 +449,16 @@ export default function BillEditorScreen() {
 
     const handleSyncDeleteItem = async (itemId: string) => {
         if (!isHost) return;
-        const prevItems = syncItems;
+        const prevSyncItems = syncItems;
+        const prevLocalItems = items;
         setSyncItems(prev => prev.filter(i => i.id !== itemId));
+        setItems(prev => prev.filter(i => i.id !== itemId));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         try {
             await deleteBillItem(itemId);
         } catch (err) {
-            setSyncItems(prevItems);
+            setSyncItems(prevSyncItems);
+            setItems(prevLocalItems);
             console.error('BillEditor: Failed to delete item:', err);
             Alert.alert('Error', 'Failed to delete item.');
         }
@@ -816,7 +821,7 @@ export default function BillEditorScreen() {
                         <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-gray-100 transition-colors">
                             <ArrowLeft color="#4b29b4" size={24} />
                         </TouchableOpacity>
-                        <Text className="text-2xl font-black text-primary tracking-tight">Divvit</Text>
+                        <DivvitLogo />
                     </View>
                     <View className="flex-row items-center gap-4">
                         <View className="px-3 py-1 rounded-full bg-surface-container-high">

@@ -4,19 +4,21 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    SafeAreaView,
     ScrollView,
     ActivityIndicator,
     Alert,
     RefreshControl,
     Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LogOut, Edit3, Check, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../context/AuthContext';
-import DivvitHeader from '@/components/DivvitHeader';
+import TabHeader from '@/components/TabHeader';
+import { supabase } from '../../lib/supabase';
+import { getUserPoints } from '@/services/rewardsService';
 import { getInitials } from '../../types';
 
 import ContactInfoCard from '../../components/profile/ContactInfoCard';
@@ -28,6 +30,18 @@ export default function ProfileScreen() {
     const { session, user, profile, signOut, refreshProfile } = useAuth();
 
     const [isEditing, setIsEditing] = useState(false);
+    const [userPoints, setUserPoints] = useState(0);
+
+    useEffect(() => {
+        const fetchPoints = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const pts = await getUserPoints(user.id);
+                setUserPoints(pts);
+            }
+        };
+        fetchPoints();
+    }, []);
     const [phone, setPhone] = useState('');
     const [venmoHandle, setVenmoHandle] = useState('');
     const [cashappHandle, setCashappHandle] = useState('');
@@ -145,18 +159,21 @@ export default function ProfileScreen() {
         : 'User';
     // const username = profile?.username || 'username'; // Left off if unused
     const initials = getInitials(displayName);
+    const memberYear = profile?.created_at 
+        ? new Date(profile.created_at).getFullYear()
+        : new Date().getFullYear();
 
     return (
-        <SafeAreaView className="flex-1 bg-surface">
+        <SafeAreaView className="flex-1 bg-surface" style={{ flex: 1 }}>
             <StatusBar style="dark" />
 
-            <DivvitHeader />
+            <TabHeader points={userPoints} />
 
             <ScrollView
                 className="flex-1 px-6 pt-4"
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#B54CFF" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6346cd" />
                 }
             >
                 <View className="max-w-2xl mx-auto w-full">
@@ -210,7 +227,7 @@ export default function ProfileScreen() {
                             )}
                         </View>
                         <Text className="text-3xl font-extrabold tracking-tight text-on-surface">{displayName}</Text>
-                        <Text className="text-on-surface-variant font-medium mt-1 uppercase tracking-widest text-[11px]">Premium Member since 2023</Text>
+                        <Text className="text-on-surface-variant font-medium mt-1 uppercase tracking-widest text-[11px]">Divvit member since {memberYear}</Text>
                     </View>
 
                     {/* Profile Bento Grid */}
@@ -244,7 +261,7 @@ export default function ProfileScreen() {
                                 className="w-full flex-row items-center justify-center py-4 rounded-2xl active:scale-95"
                                 style={{ backgroundColor: 'rgba(186, 26, 26, 0.05)' }}
                             >
-                                <LogOut color="#ba1a1a" size={20} />
+                                <LogOut color="#dc2626" size={20} />
                                 <Text className="text-error font-bold ml-2">Log Out</Text>
                             </TouchableOpacity>
                         </View>

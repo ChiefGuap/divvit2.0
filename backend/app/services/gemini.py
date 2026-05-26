@@ -72,45 +72,61 @@ Rules:
 - Be accurate with the prices and names
 """
 
-        try:
-            # Generate response from Gemini using new SDK.
-            # client.models.generate_content is synchronous — run it in a thread
-            # so it doesn't block FastAPI's asyncio event loop.
-            contents = [
-                types.Content(
-                    parts=[
-                        types.Part.from_text(text=prompt),
-                        types.Part.from_bytes(
-                            data=image_data,
-                            mime_type=content_type,
-                        ),
-                    ]
-                )
-            ]
-            response = await asyncio.to_thread(
-                self.client.models.generate_content,
-                model=self.model_name,
-                contents=contents,
+        # Retry chain — only use gemini-2.5-flash. If it returns 503 (high demand) or 429
+        # it will automatically retry up to 3 times with a 2-second delay.
+        MODELS = ["gemini-2.5-flash", "gemini-2.5-flash", "gemini-2.5-flash"]
+        
+        contents = [
+            types.Content(
+                parts=[
+                    types.Part.from_text(text=prompt),
+                    types.Part.from_bytes(
+                        data=image_data,
+                        mime_type=content_type,
+                    ),
+                ]
             )
+        ]
 
-            # Parse the JSON response
-            response_text = response.text.strip()
+        last_error = None
+        for model_name in MODELS:
+            try:
+                print(f"[Gemini] Trying model: {model_name}")
+                response = await asyncio.to_thread(
+                    self.client.models.generate_content,
+                    model=model_name,
+                    contents=contents,
+                )
 
-            # Remove any markdown code block formatting if present
-            if response_text.startswith("```"):
-                lines = response_text.split("\n")
-                # Remove first line (```json) and last line (```)
-                response_text = "\n".join(lines[1:-1])
+                # Parse the JSON response
+                response_text = response.text.strip()
 
-            result = json.loads(response_text)
+                # Remove any markdown code block formatting if present
+                if response_text.startswith("```"):
+                    lines = response_text.split("\n")
+                    response_text = "\n".join(lines[1:-1])
 
-            # Normalize snake_case key to camelCase so the frontend can read it
-            if "scanned_tip" in result:
-                result["scannedTip"] = result.pop("scanned_tip")
+                result = json.loads(response_text)
 
-            return result
+                # Normalize snake_case key to camelCase so the frontend can read it
+                if "scanned_tip" in result:
+                    result["scannedTip"] = result.pop("scanned_tip")
 
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse Gemini response as JSON: {e}")
-        except Exception as e:
-            raise RuntimeError(f"Gemini API error: {e}")
+                print(f"[Gemini] Success with model: {model_name}")
+                return result
+
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Failed to parse Gemini response as JSON: {e}")
+            except Exception as e:
+                error_str = str(e)
+                last_error = e
+                # Retry on 503 UNAVAILABLE (high demand) or 429 RESOURCE_EXHAUSTED (rate limit)
+                if "503" in error_str or "UNAVAILABLE" in error_str or "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                    print(f"[Gemini] Model {model_name} unavailable/exhausted, trying next fallback...")
+                    await asyncio.sleep(2)  # Brief pause before trying next model
+                    continue
+                else:
+                    raise RuntimeError(f"Gemini API error: {e}")
+
+        # All retries failed
+        raise RuntimeError(f"Gemini API error: {last_error}")

@@ -18,6 +18,7 @@ export type Profile = {
     last_name: string | null;
     avatar_url: string | null;
     phone: string | null;
+    country: string | null;
     venmo_handle: string | null;
     cashapp_handle: string | null;
     zelle_handle: string | null;

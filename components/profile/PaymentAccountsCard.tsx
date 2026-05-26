@@ -86,7 +86,7 @@ export default function PaymentAccountsCard({
                 <View className="flex-row items-center justify-between bg-surface-container-lowest p-4 rounded-2xl mt-3">
                     <View className="flex-row items-center">
                         <View className="w-8 h-8 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: 'rgba(109, 30, 212, 0.1)' }}>
-                            <Zap color="#6D1ED4" size={16} />
+                            <Zap color="#6346cd" size={16} />
                         </View>
                         {isEditing ? (
                             <View className="flex-row items-center">

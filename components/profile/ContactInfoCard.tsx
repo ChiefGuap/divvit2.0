@@ -39,7 +39,7 @@ export default function ContactInfoCard({ isEditing, email, phone, setPhone, cou
                         <Text className="text-[10px] uppercase tracking-wider text-[#484554] font-bold">Phone Number</Text>
                         {isEditing ? (
                             <TextInput
-                                className="text-on-surface font-semibold bg-surface-container-low border border-[#cac4d6] rounded-xl h-8 px-2 mt-1"
+                                className="text-on-surface font-semibold bg-surface-container-low border border-[#e5e7eb] rounded-xl h-8 px-2 mt-1"
                                 placeholder="Add phone number"
                                 placeholderTextColor="#9CA3AF"
                                 value={phone}

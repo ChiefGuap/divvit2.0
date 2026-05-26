@@ -27,7 +27,7 @@ export default function QuickActionsGrid({ onSplitEvenly, onRandomize, onClear }
 
             <TouchableOpacity onPress={onClear} activeOpacity={0.8} className="flex-1 py-4 items-center">
                 <View className="w-10 h-10 rounded-full bg-white items-center justify-center mb-2" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 1 }}>
-                    <Trash2 color="#ba1a1a" size={20} />
+                    <Trash2 color="#dc2626" size={20} />
                 </View>
                 <Text className="text-[10px] font-bold uppercase tracking-tight text-on-surface-variant text-center">Clear</Text>
             </TouchableOpacity>

@@ -1,27 +1,41 @@
 import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Home, Clock, User } from 'lucide-react-native';
+import { Home, Star, Tag, Clock, User } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
     <Tabs
-      initialRouteName="index"
       screenOptions={{
         headerShown: false,
+        sceneStyle: { backgroundColor: '#f9f9ff' },
+        tabBarActiveTintColor: '#6346cd',
+        tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E5E7EB',
-          borderTopWidth: 1,
-          height: 85,
-          paddingBottom: 25,
-          paddingTop: 10,
+          backgroundColor: '#ffffff',
+          borderTopWidth: 0,
+          shadowColor: '#111827',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.06,
+          shadowRadius: 16,
+          elevation: 8,
+          height: 84,
+          paddingBottom: 24,
+          paddingTop: 8,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          overflow: 'hidden',
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
         },
-        tabBarActiveTintColor: '#B54CFF',
-        tabBarInactiveTintColor: '#9CA3AF',
         tabBarLabelStyle: {
-          fontFamily: 'Outfit_500Medium',
           fontSize: 11,
-          marginTop: 4,
+          fontWeight: '500',
+          fontFamily: 'Outfit',
+          marginTop: 2,
+          textTransform: 'none',
         },
       }}
     >
@@ -36,6 +50,35 @@ export default function TabLayout() {
               strokeWidth={focused ? 2.5 : 2}
             />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="rewards"
+        options={{
+          title: 'Rewards',
+          tabBarIcon: ({ color, focused }) => (
+            <Star
+              size={24}
+              color={color}
+              strokeWidth={focused ? 2.5 : 2}
+              fill={focused ? color : 'none'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="promotions"
+        options={{
+          title: 'Promos',
+          tabBarIcon: ({ color, focused }) => (
+            <Tag
+              size={24}
+              color={color}
+              strokeWidth={focused ? 2.5 : 2}
+              fill={focused ? color : 'none'}
+            />
+          ),
+          tabBarIconStyle: { marginBottom: -2 },
         }}
       />
       <Tabs.Screen
@@ -67,3 +110,6 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({});
+

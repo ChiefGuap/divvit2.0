@@ -18,7 +18,7 @@ export default function TotalsCard({ subtotal, tax, dueNow }: Props) {
                 <Text className="text-on-surface-variant font-medium text-sm">Tax</Text>
                 <Text className="font-bold text-on-surface text-base">${tax.toFixed(2)}</Text>
             </View>
-            <View className="pt-4 border-t border-[#cac4d6]/30 flex-row justify-between items-end">
+            <View className="pt-4 border-t border-[#e5e7eb]/30 flex-row justify-between items-end">
                 <Text className="text-on-surface-variant text-sm pb-1">Due Now</Text>
                 <Text className="text-4xl font-heading font-extrabold tracking-tighter text-primary">
                     ${dueNow.toFixed(2)}

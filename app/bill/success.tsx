@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,15 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FileText, PartyPopper, Camera, Users, PlusCircle, CheckCircle } from 'lucide-react-native';
 import { uploadBillPhoto } from '../../utils/photoUpload';
+import { useAuth } from '../../context/AuthContext';
+import DivvitLogo from '../../components/DivvitLogo';
+import { useRewards } from '../../context/RewardsContext';
+import { getPointsForBill } from '../../services/rewardsService';
+
+const POINTS_FETCH_RETRIES = 3;
+const POINTS_FETCH_DELAY_MS = 750;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function SuccessScreen() {
     const router = useRouter();
@@ -15,13 +24,35 @@ export default function SuccessScreen() {
         totalAmount: string;
         groupSize: string;
     }>();
+    const { user } = useAuth();
+    const rewards = useRewards();
 
     const [groupPhoto, setGroupPhoto] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadComplete, setUploadComplete] = useState(false);
+    const [bonusPoints, setBonusPoints] = useState<number | null>(null);
 
-    // TODO: Calculate real points from Supabase rewards system
-    const points = 125;
+    const fetchBonusPoints = async () => {
+        if (!user?.id || !billId) return;
+        for (let attempt = 0; attempt < POINTS_FETCH_RETRIES; attempt++) {
+            try {
+                const { total } = await getPointsForBill(user.id, billId);
+                if (total > 0 || attempt === POINTS_FETCH_RETRIES - 1) {
+                    setBonusPoints(total);
+                    rewards.refresh().catch(() => { });
+                    return;
+                }
+            } catch (err) {
+                console.warn('[Rewards] getPointsForBill failed:', err);
+            }
+            await sleep(POINTS_FETCH_DELAY_MS);
+        }
+    };
+
+    useEffect(() => {
+        fetchBonusPoints();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id, billId]);
 
     const handleTakePhoto = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -44,6 +75,7 @@ export default function SuccessScreen() {
                 await uploadBillPhoto(billId, uri);
                 setUploadComplete(true);
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                fetchBonusPoints();
                 Alert.alert(
                     'Photo saved!',
                     'Great shot! +5 bonus points added.',
@@ -68,7 +100,7 @@ export default function SuccessScreen() {
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#faf4ff' }} edges={['top']}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top']}>
             <Stack.Screen options={{ headerShown: false }} />
 
             <ScrollView
@@ -76,31 +108,26 @@ export default function SuccessScreen() {
                 contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
             >
                 {/* Header */}
-                <Text style={{
-                    fontSize: 20, fontWeight: '900', color: '#4142e3',
-                    letterSpacing: -0.5, paddingTop: 8, paddingBottom: 8,
-                }}>
-                    Divvit
-                </Text>
+                <DivvitLogo />
 
                 {/* Hero Section */}
                 <View style={{ alignItems: 'center', marginTop: 16 }}>
                     {/* Ambient glow */}
                     <View style={{
                         position: 'absolute', width: 200, height: 200,
-                        borderRadius: 100, backgroundColor: 'rgba(65,66,227,0.1)',
+                        borderRadius: 100, backgroundColor: 'rgba(99,70,205,0.1)',
                         opacity: 0.5, transform: [{ scale: 1.3 }],
                     }} />
 
                     {/* Main icon circle */}
                     <LinearGradient
-                        colors={['#4142e3', '#3432d7']}
+                        colors={['#6346cd', '#4b29b4']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={{
                             width: 120, height: 120, borderRadius: 60,
                             alignItems: 'center', justifyContent: 'center',
-                            shadowColor: '#4142e3',
+                            shadowColor: '#6346cd',
                             shadowOffset: { width: 0, height: 12 },
                             shadowOpacity: 0.3,
                             shadowRadius: 30,
@@ -119,13 +146,13 @@ export default function SuccessScreen() {
                         alignItems: 'center', justifyContent: 'center',
                         transform: [{ rotate: '12deg' }],
                     }}>
-                        <PartyPopper size={20} color="#4142e3" />
+                        <PartyPopper size={20} color="#6346cd" />
                     </View>
                 </View>
 
                 {/* Headline */}
                 <Text style={{
-                    fontSize: 26, fontWeight: '900', color: '#302950',
+                    fontSize: 26, fontWeight: '800', color: '#111827',
                     letterSpacing: -0.5, textAlign: 'center', marginTop: 28,
                 }}>
                     Bill has been split
@@ -137,7 +164,7 @@ export default function SuccessScreen() {
                     paddingVertical: 32, paddingHorizontal: 32,
                     marginTop: 20, alignItems: 'center',
                     overflow: 'hidden',
-                    shadowColor: '#302950',
+                    shadowColor: '#111827',
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.04,
                     shadowRadius: 24,
@@ -147,12 +174,12 @@ export default function SuccessScreen() {
                     <View style={{
                         position: 'absolute', top: -40, right: -40,
                         width: 100, height: 100, borderRadius: 50,
-                        backgroundColor: 'rgba(150,55,118,0.1)',
+                        backgroundColor: 'rgba(99,70,205,0.1)',
                         opacity: 0.8,
                     }} />
 
                     <Text style={{
-                        fontSize: 11, fontWeight: '800', color: '#79719d',
+                        fontSize: 11, fontWeight: '800', color: '#484554',
                         letterSpacing: 3, textTransform: 'uppercase', marginBottom: 8,
                     }}>
                         Earnings
@@ -163,13 +190,13 @@ export default function SuccessScreen() {
                         justifyContent: 'center', gap: 6,
                     }}>
                         <Text style={{
-                            fontSize: 56, fontWeight: '900', color: '#4142e3',
+                            fontSize: 56, fontWeight: '800', color: '#6346cd',
                             letterSpacing: -2, lineHeight: 56,
                         }}>
-                            {points}
+                            {bonusPoints ?? '…'}
                         </Text>
                         <Text style={{
-                            fontSize: 22, fontWeight: '900', color: '#3432d7',
+                            fontSize: 22, fontWeight: '800', color: '#4b29b4',
                             marginBottom: 6,
                         }}>
                             pts
@@ -177,10 +204,12 @@ export default function SuccessScreen() {
                     </View>
 
                     <Text style={{
-                        fontSize: 14, color: '#5e5680', fontWeight: '500',
+                        fontSize: 14, color: '#484554', fontWeight: '500',
                         marginTop: 8, textAlign: 'center',
                     }}>
-                        You earned {points} pts through this split
+                        {bonusPoints === null
+                            ? 'Tallying up your rewards…'
+                            : `You earned ${bonusPoints} pts through this split`}
                     </Text>
                 </View>
 
@@ -191,10 +220,10 @@ export default function SuccessScreen() {
                     activeOpacity={0.85}
                     style={{
                         marginTop: 28, height: 60, borderRadius: 999,
-                        backgroundColor: uploadComplete ? '#16a34a' : '#4142e3',
+                        backgroundColor: uploadComplete ? '#16a34a' : '#6346cd',
                         flexDirection: 'row', alignItems: 'center',
                         justifyContent: 'center', gap: 12,
-                        shadowColor: uploadComplete ? '#16a34a' : '#4142e3',
+                        shadowColor: uploadComplete ? '#16a34a' : '#6346cd',
                         shadowOffset: { width: 0, height: 12 },
                         shadowOpacity: 0.3,
                         shadowRadius: 30,
@@ -205,21 +234,21 @@ export default function SuccessScreen() {
                     {isUploading ? (
                         <>
                             <ActivityIndicator size="small" color="#ffffff" />
-                            <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '900' }}>
+                            <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '800' }}>
                                 Uploading...
                             </Text>
                         </>
                     ) : uploadComplete ? (
                         <>
                             <CheckCircle size={24} color="#ffffff" />
-                            <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '900' }}>
+                            <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '800' }}>
                                 Photo saved!
                             </Text>
                         </>
                     ) : (
                         <>
                             <Camera size={24} color="#ffffff" />
-                            <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '900' }}>
+                            <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '800' }}>
                                 Take a group picture
                             </Text>
                         </>
@@ -246,8 +275,8 @@ export default function SuccessScreen() {
                         marginTop: 10, flexDirection: 'row',
                         alignItems: 'center', justifyContent: 'center', gap: 6,
                     }}>
-                        <PlusCircle size={16} color="#5e5680" />
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#5e5680' }}>
+                        <PlusCircle size={16} color="#484554" />
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#484554' }}>
                             Earn +5pts by taking a photo
                         </Text>
                     </View>
@@ -256,32 +285,32 @@ export default function SuccessScreen() {
                 {/* Stats Bento Row */}
                 <View style={{ marginTop: 28, flexDirection: 'row', gap: 12 }}>
                     <View style={{
-                        flex: 1, backgroundColor: '#f4eeff',
+                        flex: 1, backgroundColor: '#f1f3ff',
                         borderRadius: 24, padding: 20,
                     }}>
-                        <Users size={24} color="#4142e3" style={{ marginBottom: 8 }} />
+                        <Users size={24} color="#6346cd" style={{ marginBottom: 8 }} />
                         <Text style={{
-                            fontSize: 10, fontWeight: '800', color: '#79719d',
+                            fontSize: 10, fontWeight: '800', color: '#484554',
                             letterSpacing: 2, textTransform: 'uppercase',
                         }}>
                             Group Size
                         </Text>
-                        <Text style={{ fontSize: 18, fontWeight: '900', color: '#302950' }}>
+                        <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>
                             {groupSize || '0'} People
                         </Text>
                     </View>
                     <View style={{
-                        flex: 1, backgroundColor: '#f4eeff',
+                        flex: 1, backgroundColor: '#f1f3ff',
                         borderRadius: 24, padding: 20,
                     }}>
-                        <FileText size={24} color="#5e4ab3" style={{ marginBottom: 8 }} />
+                        <FileText size={24} color="#4b29b4" style={{ marginBottom: 8 }} />
                         <Text style={{
-                            fontSize: 10, fontWeight: '800', color: '#79719d',
+                            fontSize: 10, fontWeight: '800', color: '#484554',
                             letterSpacing: 2, textTransform: 'uppercase',
                         }}>
                             Total Bill
                         </Text>
-                        <Text style={{ fontSize: 18, fontWeight: '900', color: '#302950' }}>
+                        <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827' }}>
                             ${totalAmount || '0.00'}
                         </Text>
                     </View>
@@ -294,11 +323,11 @@ export default function SuccessScreen() {
                     style={{
                         marginTop: 20, height: 58, borderRadius: 999,
                         backgroundColor: 'transparent',
-                        borderWidth: 2, borderColor: '#4142e3',
+                        borderWidth: 2, borderColor: '#6346cd',
                         alignItems: 'center', justifyContent: 'center',
                     }}
                 >
-                    <Text style={{ color: '#4142e3', fontSize: 17, fontWeight: '900' }}>
+                    <Text style={{ color: '#6346cd', fontSize: 17, fontWeight: '800' }}>
                         Close the split
                     </Text>
                 </TouchableOpacity>
