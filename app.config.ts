@@ -68,6 +68,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                     enableGooglePay: false,
                 },
             ],
+            '@react-native-community/datetimepicker',
         ],
         experiments: {
             typedRoutes: false,
