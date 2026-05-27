@@ -22,7 +22,7 @@ import { awardUsePromotion } from '../../services/rewardsService';
 import TabHeader from '@/components/TabHeader';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 48;
+const CARD_WIDTH = SCREEN_WIDTH - 64;
 // Use a responsive multiplier based on screen height to prevent cutoffs
 const CARD_HEIGHT = SCREEN_HEIGHT < 750 ? CARD_WIDTH * 1.05 : CARD_WIDTH * 1.15;
 const SWIPE_THRESHOLD = 100;
@@ -125,15 +125,40 @@ const ActiveCardContent = ({ deal }: { deal: Deal }) => {
       {/* Content bottom 1/3 */}
       <View style={s.cardContent}>
         <View style={s.cardRow1}>
-          <Text style={s.restaurantName}>{deal.restaurant.toUpperCase()}</Text>
-          <View style={s.dot} />
-          <Text style={s.distanceTxt}>{deal.distance} away</Text>
-          <View style={{ flex: 1 }} />
-          <Star size={12} color="#6346cd" fill="#6346cd" />
-          <Text style={s.ratingTxt}>{deal.rating}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+            <Text 
+              style={[s.restaurantName, { flexShrink: 1 }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {deal.restaurant.toUpperCase()}
+            </Text>
+            {deal.distance && !deal.distance.toLowerCase().includes('nearby') && (
+              <>
+                <View style={s.dot} />
+                <Text style={s.distanceTxt} numberOfLines={1} ellipsizeMode="tail">{deal.distance} away</Text>
+              </>
+            )}
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', minWidth: 40, justifyContent: 'flex-end', gap: 4 }}>
+            <Star size={12} color="#6346cd" fill="#6346cd" />
+            <Text style={s.ratingTxt}>{Math.round(deal.rating * 10) / 10}</Text>
+          </View>
         </View>
-        <Text style={s.dealTitle}>{deal.title}</Text>
-        <Text style={s.dealDesc} numberOfLines={2}>{deal.description}</Text>
+        <Text 
+          style={s.dealTitle}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {deal.title}
+        </Text>
+        <Text 
+          style={s.dealDesc} 
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
+          {deal.description}
+        </Text>
         <View style={s.cardBottom}>
           <View style={s.avatarBubbles}>
             {AVATAR_INITIALS.map((init, i) => (
@@ -447,7 +472,7 @@ const MOCK_DEALS: Deal[] = [
     distance: '0.5 miles',
     rating: 4.8,
     saves: '892',
-    badge: 'Exclusive',
+    badge: 'From Restaurant',
     imageUrl: 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?w=800&q=80',
     pointsAwarded: 2,
     dealType: 'discount',
@@ -696,10 +721,10 @@ const s = StyleSheet.create({
   // Card content
   cardContent: { flex: 1, padding: 20, justifyContent: 'space-between' },
   cardRow1: { flexDirection: 'row', alignItems: 'center' },
-  restaurantName: { fontSize: 13, fontWeight: '700', color: '#4b29b4', letterSpacing: 1, textTransform: 'uppercase' },
+  restaurantName: { fontSize: 11, fontWeight: '700', color: '#4b29b4', letterSpacing: 1, textTransform: 'uppercase' },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#e5e7eb', marginHorizontal: 8 },
-  distanceTxt: { fontSize: 12, color: '#9ca3af' },
-  ratingTxt: { fontSize: 12, fontWeight: '700', color: '#6346cd', marginLeft: 4 },
+  distanceTxt: { fontSize: 11, color: '#9ca3af' },
+  ratingTxt: { fontSize: 11, fontWeight: '700', color: '#6346cd', marginLeft: 4 },
   dealTitle: { fontSize: 22, fontWeight: '800', color: '#111827', letterSpacing: -0.5, marginTop: 4 },
   dealDesc: { fontSize: 14, color: '#484554', marginTop: 8, lineHeight: 20 },
   cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },

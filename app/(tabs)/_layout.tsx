@@ -30,11 +30,16 @@ export default function TabLayout() {
           left: 0,
           right: 0,
         },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '500',
+          fontWeight: '600',
           fontFamily: 'Outfit',
           marginTop: 2,
+          marginBottom: 0,
           textTransform: 'none',
         },
       }}
@@ -61,7 +66,6 @@ export default function TabLayout() {
               size={24}
               color={color}
               strokeWidth={focused ? 2.5 : 2}
-              fill={focused ? color : 'none'}
             />
           ),
         }}
@@ -75,10 +79,8 @@ export default function TabLayout() {
               size={24}
               color={color}
               strokeWidth={focused ? 2.5 : 2}
-              fill={focused ? color : 'none'}
             />
           ),
-          tabBarIconStyle: { marginBottom: -2 },
         }}
       />
       <Tabs.Screen

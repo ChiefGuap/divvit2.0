@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
   },
   newSplitButton: {
     marginTop: 16,
-    height: 96,
+    height: 120,
     backgroundColor: '#6346cd',
     borderRadius: 24,
     flexDirection: 'row',
@@ -606,14 +606,14 @@ const styles = StyleSheet.create({
   manualScanButton: {
     marginTop: 12,
     height: 64,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f0ebff',
     borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
     borderWidth: 1,
-    borderColor: 'rgba(202,196,214,0.3)',
+    borderColor: 'rgba(99, 70, 205, 0.15)',
   },
   manualScanText: {
     color: '#141b2b',

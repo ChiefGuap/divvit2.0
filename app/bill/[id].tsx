@@ -220,6 +220,7 @@ export default function BillEditorScreen() {
     // Replaces old broadcast-based sync with database-backed realtime subscriptions
     const [syncItems, setSyncItems] = useState<SyncBillItem[]>([]);
     const [hasFetchedSyncItems, setHasFetchedSyncItems] = useState(false);
+    const [realtimeStatus, setRealtimeStatus] = useState<string>('connecting');
 
     useEffect(() => {
         if (!id || !isFromParty) return;
@@ -238,16 +239,36 @@ export default function BillEditorScreen() {
         };
         loadSyncItems();
 
-        // Subscribe to bill_items changes (assignments, new items)
-        const itemsChannel = subscribeToBillItems(id, (updatedItem) => {
-            setSyncItems(prev => {
-                const exists = prev.find(i => i.id === updatedItem.id);
-                if (exists) {
-                    return prev.map(i => i.id === updatedItem.id ? updatedItem : i);
+        // Subscribe to bill_items changes (assignments, new items, deletions)
+        const itemsChannel = subscribeToBillItems(
+            id,
+            (item, eventType) => {
+                if (eventType === 'DELETE') {
+                    setSyncItems(prev => prev.filter(i => i.id !== item.id));
+                    setItems(prev => prev.filter(i => i.id !== item.id));
+                } else {
+                    setSyncItems(prev => {
+                        const exists = prev.find(i => i.id === item.id);
+                        if (exists) {
+                            return prev.map(i => i.id === item.id ? item : i);
+                        }
+                        return [...prev, item];
+                    });
                 }
-                return [...prev, updatedItem];
-            });
-        });
+            },
+            (status) => {
+                console.log(`[Realtime] status: ${status}`);
+                setRealtimeStatus(status);
+
+                if (status === 'SUBSCRIBED') {
+                    console.log('[Realtime] ✅ Connected and listening for item updates');
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error('[Realtime] ❌ Channel error — items will not sync');
+                } else if (status === 'TIMED_OUT') {
+                    console.error('[Realtime] ⏱ Subscription timed out');
+                }
+            }
+        );
 
         // Subscribe to bill status changes (tip_selection, completed, settled)
         const statusChannel = subscribeToBillStatus(id, (newStatus) => {
@@ -293,15 +314,35 @@ export default function BillEditorScreen() {
     ];
     const activeScannedTip = isExistingDraft ? loadedScannedTip : scannedTip;
 
-    const subtotal = useMemo(() => items.reduce((sum, item) => sum + (item.price || 0), 0), [items]);
+    const effectiveItems = useMemo(() => {
+        if (isFromParty) {
+            return syncItems.map(si => ({ id: si.id, name: si.name, price: si.price }));
+        }
+        return items;
+    }, [isFromParty, syncItems, items]);
+
+    const effectiveAssignments = useMemo(() => {
+        if (isFromParty) {
+            const map: Record<string, string[]> = {};
+            syncItems.forEach(si => {
+                if (si.assigned_to) {
+                    map[si.id] = [si.assigned_to];
+                }
+            });
+            return map;
+        }
+        return assignments;
+    }, [isFromParty, syncItems, assignments]);
+
+    const subtotal = useMemo(() => effectiveItems.reduce((sum, item) => sum + (item.price || 0), 0), [effectiveItems]);
     const billTotal = subtotal + taxAmount;
 
     const userFinalTotals = useMemo(() => {
         const totals: Record<string, number> = {};
         activeUsers.forEach(u => totals[u.id] = 0);
 
-        Object.entries(assignments).forEach(([itemId, userIds]) => {
-            const item = items.find(i => i.id === itemId);
+        Object.entries(effectiveAssignments).forEach(([itemId, userIds]) => {
+            const item = effectiveItems.find(i => i.id === itemId);
             if (item && userIds && userIds.length > 0) {
                 const costPerUser = item.price / userIds.length;
                 userIds.forEach(userId => {
@@ -317,7 +358,7 @@ export default function BillEditorScreen() {
             });
         }
         return totals;
-    }, [assignments, items, activeUsers, taxAmount, subtotal]);
+    }, [effectiveAssignments, effectiveItems, activeUsers, taxAmount, subtotal]);
 
     const progressSegments = useMemo(() => {
         const segments: { width: number; color: string; id: string }[] = [];
@@ -360,7 +401,7 @@ export default function BillEditorScreen() {
     // ─── Party mode (GUEST only): single-assignment item claiming via bill_items table ───
     // Host uses the multi-assign local state path instead (see handleAssignItem).
     const handleSyncAssignItem = async (itemId: string) => {
-        const targetParticipantId = myParticipantId;
+        const targetParticipantId = isHost ? selectedUserIds[0] : myParticipantId;
 
         if (!targetParticipantId) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -371,7 +412,7 @@ export default function BillEditorScreen() {
         if (!item) return;
 
         // Guests can't claim items already assigned to someone else
-        if (item.assigned_to && item.assigned_to !== targetParticipantId) {
+        if (!isHost && item.assigned_to && item.assigned_to !== targetParticipantId) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             return;
         }
@@ -470,7 +511,7 @@ export default function BillEditorScreen() {
         if (!isHost || !id) return;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        const validItems = items.filter(item => item.name.trim() || item.price > 0);
+        const validItems = effectiveItems.filter(item => item.name.trim() || item.price > 0);
         if (validItems.length === 0) {
             Alert.alert('No Items', 'Please add at least one item before continuing.');
             return;
@@ -479,33 +520,6 @@ export default function BillEditorScreen() {
         try {
             const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
             const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-            // Delete existing bill_items and re-create from local state
-            await fetch(`${supabaseUrl}/rest/v1/bill_items?bill_id=eq.${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'apikey': supabaseKey!,
-                    'Authorization': `Bearer ${session!.access_token}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            const itemsPayload = validItems.map(item => ({
-                bill_id: id,
-                name: item.name,
-                price: Number(item.price) || 0,
-                quantity: 1,
-            }));
-            await fetch(`${supabaseUrl}/rest/v1/bill_items`, {
-                method: 'POST',
-                headers: {
-                    'apikey': supabaseKey!,
-                    'Authorization': `Bearer ${session!.access_token}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=minimal',
-                },
-                body: JSON.stringify(itemsPayload),
-            });
 
             // Save assignments + tax to bill details JSONB
             await fetch(`${supabaseUrl}/rest/v1/bills?id=eq.${id}`, {
@@ -519,7 +533,7 @@ export default function BillEditorScreen() {
                 body: JSON.stringify({
                     details: {
                         items: validItems,
-                        assignments,
+                        assignments: effectiveAssignments,
                         users: activeUsers,
                         tax: taxAmount,
                         subtotal,
@@ -541,8 +555,8 @@ export default function BillEditorScreen() {
 
     // ─── Multi-assignment via local state (works in standalone AND party-host mode) ───
     const handleAssignItem = (itemId: string) => {
-        // In party mode, guests use the single-assign sync path; host uses multi-assign local state
-        if (isFromParty && !isHost) {
+        // In party mode, both host and guest use the real-time Postgres assignment path
+        if (isFromParty) {
             handleSyncAssignItem(itemId);
             return;
         }
@@ -599,7 +613,10 @@ export default function BillEditorScreen() {
             async (name) => {
                 if (!name || !name.trim()) return;
                 const trimmed = name.trim();
-                const initials = trimmed.slice(0, 2).toUpperCase();
+                const parts = trimmed.split(' ');
+                const initials = parts.length >= 2
+                    ? (parts[0][0] + parts[1][0]).toUpperCase()
+                    : trimmed.slice(0, 2).toUpperCase();
                 const colorIndex = (additionalUsers.length + activeUsers.length) % AVATAR_COLORS.length;
                 const color = AVATAR_COLORS[colorIndex];
 
@@ -864,8 +881,8 @@ export default function BillEditorScreen() {
                             )}
                         </View>
 
-                        {isFromParty && !isHost ? (
-                            /* ── Party mode (guest): render from bill_items table with single-assignment ── */
+                        {isFromParty ? (
+                            /* ── Party mode (host or guest): render from bill_items table with realtime assignment ── */
                             syncItems.length > 0 ? syncItems.map((syncItem, index) => {
                                 const assigneeId = syncItem.assigned_to;
                                 const uniqueAssignees = assigneeId ? [assigneeId] : [];
@@ -875,26 +892,28 @@ export default function BillEditorScreen() {
                                         key={syncItem.id}
                                         item={{ id: syncItem.id, name: syncItem.name, price: syncItem.price }}
                                         index={index}
-                                        priceInput={undefined as any}
+                                        priceInput={isHost ? priceInputs[syncItem.id] : undefined}
                                         uniqueAssignees={uniqueAssignees}
                                         activeUsers={activeUsers}
-                                        onNameChange={() => {}}
-                                        onPriceChange={() => {}}
-                                        onPriceBlur={() => {}}
-                                        onAssignToggle={() => handleAssignItem(syncItem.id)}
-                                        onDelete={() => {}}
-                                        setSwipeableRef={() => {}}
+                                        onNameChange={isHost ? (text) => handleSyncUpdateName(syncItem.id, text) : () => {}}
+                                        onPriceChange={isHost ? (text) => handleSyncUpdatePrice(syncItem.id, text) : () => {}}
+                                        onPriceBlur={isHost ? () => handleSyncPriceBlur(syncItem.id) : () => {}}
+                                        onAssignToggle={() => handleSyncAssignItem(syncItem.id)}
+                                        onDelete={isHost ? () => handleSyncDeleteItem(syncItem.id) : () => {}}
+                                        setSwipeableRef={(ref) => {
+                                            if (isHost && ref) swipeableRefs.current.set(syncItem.id, ref);
+                                        }}
                                     />
                                 );
                             }) : (
                                 <View className="items-center py-8">
                                     <Text className="text-on-surface-variant font-medium text-sm">
-                                        Waiting for host to add items...
+                                        {isHost ? 'Add some items to get started...' : 'Waiting for host to add items...'}
                                     </Text>
                                 </View>
                             )
                         ) : (
-                            /* ── Host (party or standalone): full editing with multi-assignment ── */
+                            /* ── Standalone Mode: full editing with multi-assignment ── */
                             items.map((item, index) => {
                                 const assignedUserIds = assignments[item.id] || [];
                                 const uniqueAssignees = Array.from(new Set(assignedUserIds));

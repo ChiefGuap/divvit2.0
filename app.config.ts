@@ -25,7 +25,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ios: {
             supportsTablet: true,
             bundleIdentifier,
-            buildNumber: '20',
+            buildNumber: '21',
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false,
                 NSCameraUsageDescription: 'Divvit needs camera access to take group photos after splitting a bill.',

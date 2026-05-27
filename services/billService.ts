@@ -207,37 +207,31 @@ export const subscribeToBillStatus = (
 
 export const subscribeToBillItems = (
     billId: string,
-    onItemChange: (item: BillItem) => void
+    onItemChange: (item: BillItem, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => void,
+    onStatus?: (status: string) => void
 ) => {
     const channel = supabase
         .channel(`bill-items-${billId}`)
         .on(
             'postgres_changes',
             {
-                event: 'UPDATE',
+                event: '*',
                 schema: 'public',
                 table: 'bill_items',
                 filter: `bill_id=eq.${billId}`,
             },
             (payload) => {
-                console.log('[Realtime] Bill item updated:', payload.new);
-                onItemChange(payload.new as BillItem);
+                console.log('[Realtime] Bill item event:', payload.eventType, payload);
+                if (payload.eventType === 'DELETE') {
+                    onItemChange(payload.old as BillItem, 'DELETE');
+                } else {
+                    onItemChange(payload.new as BillItem, payload.eventType as any);
+                }
             }
         )
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'bill_items',
-                filter: `bill_id=eq.${billId}`,
-            },
-            (payload) => {
-                console.log('[Realtime] Bill item inserted:', payload.new);
-                onItemChange(payload.new as BillItem);
-            }
-        )
-        .subscribe();
+        .subscribe((status) => {
+            if (onStatus) onStatus(status);
+        });
     return channel;
 };
 
