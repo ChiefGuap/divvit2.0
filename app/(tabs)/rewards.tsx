@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import {
   Star,
   Lock,
@@ -287,32 +288,38 @@ export default function RewardsScreen() {
 
         {/* SECTION 2 — NEXT REWARD PROGRESS CARD */}
         {nextReward && (
-          <View style={s.progressCard}>
-            <View style={s.progressTop}>
-              <View style={s.progressLeft}>
-                <Text style={s.progressLabel}>NEXT REWARD</Text>
-                <Text style={s.rewardName} numberOfLines={1}>{nextReward.name}</Text>
-              </View>
-              <View style={s.progressRight}>
-                <Text style={s.pointsLeftNumber}>{pointsLeft}</Text>
-                <Text style={s.pointsLeftLabel}>PTS LEFT</Text>
+          <View style={s.rewardsProgressCard}>
+            <View style={s.progressRingContainer}>
+              <Svg viewBox="0 0 36 36" width={64} height={64}>
+                <Path
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none"
+                  stroke="#e9edff"
+                  strokeWidth="3.5"
+                />
+                <Path
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none"
+                  stroke="#6346cd"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeDasharray={`${Math.min(Math.max(progress * 100, 0), 100)}, 100`}
+                  transform="rotate(-90 18 18)"
+                />
+              </Svg>
+              <View style={s.progressTextContainer}>
+                <Text style={s.progressPercentText}>
+                  {Math.round(Math.min(Math.max(progress * 100, 0), 100))}%
+                </Text>
               </View>
             </View>
 
-            {/* Progress Bar */}
-            <View style={s.progressBarTrack}>
-              <View
-                style={[
-                  s.progressBarFill,
-                  { width: `${Math.min(progress * 100, 100)}%` },
-                ]}
-              />
-            </View>
-
-            {/* Progress Scale */}
-            <View style={s.progressScale}>
-              <Text style={s.scaleText}>0 PTS</Text>
-              <Text style={s.scaleText}>{nextReward.points_required} PTS</Text>
+            <View style={s.rewardsInfo}>
+              <Text style={s.rewardsProgressLabel}>Your Progress</Text>
+              <Text style={s.rewardsPointsText}>
+                <Text style={s.rewardsPointsHighlight}>{userPoints}/{nextReward.points_required}</Text>
+                <Text style={s.rewardsPointsTextNormal}> PTS to next reward</Text>
+              </Text>
             </View>
           </View>
         )}
@@ -597,76 +604,59 @@ const s = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1,
   },
-  progressCard: {
-    backgroundColor: 'white',
+  rewardsProgressCard: {
+    backgroundColor: '#ffffff',
     borderRadius: 24,
     padding: 20,
     marginTop: 16,
-    shadowColor: '#111827',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 2,
-  },
-  progressTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(202,196,214,0.2)',
+    shadowColor: '#141b2b',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  progressLeft: {
+  progressRingContainer: {
+    width: 64,
+    height: 64,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressTextContainer: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressPercentText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6346cd',
+  },
+  rewardsInfo: {
     flex: 1,
-    marginRight: 8,
   },
-  progressLabel: {
-    fontSize: 11,
+  rewardsProgressLabel: {
+    fontSize: 14,
     fontWeight: '700',
-    color: COLORS.onSurfaceVariant,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
+    color: '#141b2b',
+    fontFamily: 'Outfit',
   },
-  rewardName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.onSurface,
-    marginTop: 2,
+  rewardsPointsText: {
+    marginTop: 4,
+    fontSize: 15,
+    fontFamily: 'Outfit',
   },
-  progressRight: {
-    alignItems: 'flex-end',
-  },
-  pointsLeftNumber: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: COLORS.primary,
-    letterSpacing: -1,
-    textAlign: 'right',
-  },
-  pointsLeftLabel: {
-    fontSize: 10,
+  rewardsPointsHighlight: {
+    color: '#6346cd',
     fontWeight: '700',
-    color: COLORS.onSurfaceVariant,
-    letterSpacing: 2,
-    textAlign: 'right',
   },
-  progressBarTrack: {
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: COLORS.surfaceContainer,
-    marginTop: 16,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: COLORS.primary,
-  },
-  progressScale: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  scaleText: {
-    fontSize: 11,
-    color: COLORS.onSurfaceVariant,
+  rewardsPointsTextNormal: {
+    color: '#484554',
     fontWeight: '600',
   },
   sectionHeader: {

@@ -21,9 +21,10 @@ import { useRewards } from '../../context/RewardsContext';
 import { awardUsePromotion } from '../../services/rewardsService';
 import TabHeader from '@/components/TabHeader';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 48;
-const CARD_HEIGHT = CARD_WIDTH * 1.4;
+// Use a responsive multiplier based on screen height to prevent cutoffs
+const CARD_HEIGHT = SCREEN_HEIGHT < 750 ? CARD_WIDTH * 1.05 : CARD_WIDTH * 1.15;
 const SWIPE_THRESHOLD = 100;
 
 const RADIUS_OPTIONS = [5, 10, 15, 25, 50]; // miles
@@ -656,7 +657,7 @@ const s = StyleSheet.create({
   cardInner: { flex: 1 },
 
   // Card image
-  cardImageWrap: { flex: 2, overflow: 'hidden', borderTopLeftRadius: 28, borderTopRightRadius: 28, position: 'relative' },
+  cardImageWrap: { flex: 1.5, overflow: 'hidden', borderTopLeftRadius: 28, borderTopRightRadius: 28, position: 'relative' },
   cardImage: { width: '100%', height: '100%' },
   cardImagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   logoCardContainer: {
@@ -699,7 +700,7 @@ const s = StyleSheet.create({
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#e5e7eb', marginHorizontal: 8 },
   distanceTxt: { fontSize: 12, color: '#9ca3af' },
   ratingTxt: { fontSize: 12, fontWeight: '700', color: '#6346cd', marginLeft: 4 },
-  dealTitle: { fontSize: 28, fontWeight: '800', color: '#111827', letterSpacing: -0.5, marginTop: 4 },
+  dealTitle: { fontSize: 22, fontWeight: '800', color: '#111827', letterSpacing: -0.5, marginTop: 4 },
   dealDesc: { fontSize: 14, color: '#484554', marginTop: 8, lineHeight: 20 },
   cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
   avatarBubbles: { flexDirection: 'row', alignItems: 'center' },
