@@ -121,6 +121,7 @@ export default function PartySizeScreen() {
       </BlurView>
 
       <ScrollView
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.scrollContent}
       >
@@ -220,6 +221,9 @@ export default function PartySizeScreen() {
           </ScrollView>
         </View>
 
+        {/* Spacer to push continue button dynamically to bottom on larger screens */}
+        <View style={{ flex: 1, minHeight: 16 }} />
+
         {/* CONTINUE BUTTON */}
         <View style={s.continueContainer}>
           <TouchableOpacity
@@ -289,6 +293,7 @@ const s = StyleSheet.create({
   scrollContent: {
     paddingTop: 12,
     paddingBottom: 24,
+    flexGrow: 1,
   },
   editorialHeader: {
     paddingHorizontal: 24,
