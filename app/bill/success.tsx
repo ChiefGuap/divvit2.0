@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import DivvitLogo from '../../components/DivvitLogo';
 import { useRewards } from '../../context/RewardsContext';
 import { getPointsForBill } from '../../services/rewardsService';
+import { supabase } from '../../lib/supabase';
 
 const POINTS_FETCH_RETRIES = 3;
 const POINTS_FETCH_DELAY_MS = 750;
@@ -30,6 +31,7 @@ export default function SuccessScreen() {
     const [groupPhoto, setGroupPhoto] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadComplete, setUploadComplete] = useState(false);
+    const [isLocalUploader, setIsLocalUploader] = useState(false);
     const [bonusPoints, setBonusPoints] = useState<number | null>(null);
     const [pointsBreakdown, setPointsBreakdown] = useState<string[]>([]);
 
@@ -83,10 +85,68 @@ export default function SuccessScreen() {
         }
     };
 
+    // Fetch initial points on load
     useEffect(() => {
         fetchBonusPoints();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id, billId]);
+
+    // Query initial group photo and subscribe to real-time sync
+    useEffect(() => {
+        if (!billId) return;
+
+        const checkInitialPhoto = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('bills')
+                    .select('group_photo_url')
+                    .eq('id', billId)
+                    .single();
+
+                if (error) {
+                    console.warn('[SuccessScreen] Error checking initial photo:', error);
+                    return;
+                }
+
+                if (data?.group_photo_url) {
+                    setGroupPhoto(data.group_photo_url);
+                    setUploadComplete(true);
+                    fetchBonusPoints();
+                }
+            } catch (err) {
+                console.error('[SuccessScreen] Failed to fetch initial photo:', err);
+            }
+        };
+
+        checkInitialPhoto();
+
+        // Subscribe to real-time UPDATE events for this bill
+        const channel = supabase
+            .channel(`bill-group-photo-${billId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'bills',
+                    filter: `id=eq.${billId}`,
+                },
+                (payload) => {
+                    const newPhotoUrl = (payload.new as any).group_photo_url;
+                    if (newPhotoUrl) {
+                        setGroupPhoto(newPhotoUrl);
+                        setUploadComplete(true);
+                        fetchBonusPoints();
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            channel.unsubscribe();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [billId]);
 
     const handleTakePhoto = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -108,6 +168,7 @@ export default function SuccessScreen() {
             try {
                 await uploadBillPhoto(billId, uri);
                 setUploadComplete(true);
+                setIsLocalUploader(true);
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 fetchBonusPoints();
                 Alert.alert(
@@ -264,14 +325,18 @@ export default function SuccessScreen() {
                     activeOpacity={0.85}
                     style={{
                         marginTop: 28, height: 60, borderRadius: 999,
-                        backgroundColor: uploadComplete ? '#16a34a' : '#6346cd',
+                        backgroundColor: uploadComplete 
+                            ? (isLocalUploader ? '#16a34a' : '#9ca3af') 
+                            : '#6346cd',
                         flexDirection: 'row', alignItems: 'center',
                         justifyContent: 'center', gap: 12,
-                        shadowColor: uploadComplete ? '#16a34a' : '#6346cd',
-                        shadowOffset: { width: 0, height: 12 },
-                        shadowOpacity: 0.3,
-                        shadowRadius: 30,
-                        elevation: 8,
+                        shadowColor: uploadComplete 
+                            ? (isLocalUploader ? '#16a34a' : '#9ca3af') 
+                            : '#6346cd',
+                        shadowOffset: uploadComplete && !isLocalUploader ? { width: 0, height: 0 } : { width: 0, height: 12 },
+                        shadowOpacity: uploadComplete && !isLocalUploader ? 0 : 0.3,
+                        shadowRadius: uploadComplete && !isLocalUploader ? 0 : 30,
+                        elevation: uploadComplete && !isLocalUploader ? 0 : 8,
                         opacity: isUploading ? 0.8 : 1,
                     }}
                 >
@@ -286,7 +351,7 @@ export default function SuccessScreen() {
                         <>
                             <CheckCircle size={24} color="#ffffff" />
                             <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '800' }}>
-                                Photo saved!
+                                {isLocalUploader ? 'Photo saved!' : 'Group Photo Saved!'}
                             </Text>
                         </>
                     ) : (
