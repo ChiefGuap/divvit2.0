@@ -179,8 +179,8 @@ export default function Login() {
         setError(null);
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         try {
-            const testEmail = 'test@example.com';
-            const testPassword = 'password123';
+            const testEmail = 'divvit.test.user.local@gmail.com';
+            const testPassword = 'DivvitLocalTestPassword123!';
             
             console.log('DevBypass: Attempting sign in...');
             const { error: signInError } = await supabase.auth.signInWithPassword({

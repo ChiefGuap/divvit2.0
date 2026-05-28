@@ -24,7 +24,6 @@ import { getInitials } from '../../types';
 import ContactInfoCard from '../../components/profile/ContactInfoCard';
 import PaymentAccountsCard from '../../components/profile/PaymentAccountsCard';
 
-
 export default function ProfileScreen() {
     const router = useRouter();
     const { session, user, profile, signOut, refreshProfile } = useAuth();
@@ -251,8 +250,6 @@ export default function ProfileScreen() {
                             applePayHandle={applePayHandle}
                             setApplePayHandle={setApplePayHandle}
                         />
-
-
 
                         {/* Logout Action */}
                         <View className="mt-8 mb-12">
