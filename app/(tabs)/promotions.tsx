@@ -362,13 +362,17 @@ const EmptyState = ({ onGoToDeals, isAllSwiped }: { onGoToDeals: () => void; isA
 );
 
 // ─── Saved Promos View ───
-const SavedPromosView = ({ savedDeals, setActiveTab }: { savedDeals: Deal[]; setActiveTab: (t: 'swipe' | 'saved') => void }) => {
+const SavedPromosView = ({ savedDeals, setActiveTab, onRemoveDeal }: { savedDeals: Deal[]; setActiveTab: (t: 'swipe' | 'saved') => void; onRemoveDeal: (id: string) => void }) => {
   const { user } = useAuth();
   const rewards = useRewards();
 
   const handleUseDeal = async (deal: Deal) => {
-    const url = deal.source || (deal as any).sourceUrl;
+    let url = deal.source || (deal as any).sourceUrl || (deal as any).source_url;
     if (url) {
+      url = url.trim();
+      if (!/^https?:\/\//i.test(url)) {
+        url = `https://${url}`;
+      }
       try {
         await Linking.openURL(url);
       } catch (error) {
@@ -385,30 +389,45 @@ const SavedPromosView = ({ savedDeals, setActiveTab }: { savedDeals: Deal[]; set
       return;
     }
 
-    try {
-      const result = await awardUsePromotion(user.id, deal.id);
-      rewards.refresh().catch(() => { });
+    // Gate points award behind explicit confirmation prompt to prevent easy points manipulation
+    setTimeout(() => {
+      Alert.alert(
+        'Confirm Redemption',
+        `Did you successfully use the promotion "${deal.title}" at ${deal.restaurant}?`,
+        [
+          {
+            text: 'No, Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Yes, I Used It',
+            onPress: async () => {
+              try {
+                const result = await awardUsePromotion(user.id, deal.id);
+                rewards.refresh().catch(() => { });
 
-      const awarded = result?.points_awarded ?? 0;
-      const tail = awarded > 0 ? `\n\n+${awarded} pts awarded!` : '';
-      Alert.alert(
-        deal.title,
-        `${deal.description}\n\nShow this screen to redeem at ${deal.restaurant}.${tail}`,
+                const awarded = result?.points_awarded ?? 0;
+                const tail = awarded > 0 ? `\n\n+${awarded} pts awarded!` : '';
+                Alert.alert(
+                  'Success!',
+                  `Thank you for confirming. You earned your promotion reward!${tail}`
+                );
+              } catch (err) {
+                console.warn('[Rewards] awardUsePromotion failed:', err);
+                Alert.alert('Error', 'Failed to award points. Please try again.');
+              }
+            }
+          }
+        ]
       );
-    } catch (err) {
-      console.warn('[Rewards] awardUsePromotion failed:', err);
-      Alert.alert(
-        deal.title,
-        `${deal.description}\n\nShow this screen to redeem at ${deal.restaurant}.`,
-      );
-    }
+    }, 1000);
   };
 
   if (savedDeals.length === 0) return <EmptyState onGoToDeals={() => setActiveTab('swipe')} />;
   return (
     <ScrollView style={s.savedScroll} contentContainerStyle={s.savedScrollContent} showsVerticalScrollIndicator={false}>
       {savedDeals.map((deal) => (
-        <View key={deal.id} style={s.savedCard}>
+        <View key={deal.id} style={[s.savedCard, { position: 'relative' }]}>
           {deal.imageUrl ? (
             <View style={s.savedLogoContainer}>
               <Image source={{ uri: deal.imageUrl }} style={s.savedLogoImage} resizeMode="contain" />
@@ -428,6 +447,15 @@ const SavedPromosView = ({ savedDeals, setActiveTab }: { savedDeals: Deal[]; set
               <Text style={s.useNowTxt}>Use Now →</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Delete Button */}
+          <TouchableOpacity
+            onPress={() => onRemoveDeal(deal.id)}
+            style={{ position: 'absolute', top: 12, right: 12, padding: 4 }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <X size={18} color="#9ca3af" />
+          </TouchableOpacity>
         </View>
       ))}
     </ScrollView>
@@ -510,6 +538,7 @@ const MOCK_DEALS: Deal[] = [
 
 // ─── Main Screen ───
 export default function PromotionsScreen() {
+  const { user } = useAuth();
   const rewards = useRewards();
   const userPoints = rewards.points ?? 0;
 
@@ -522,8 +551,8 @@ export default function PromotionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [radius, setRadius] = useState(10); // default 10 miles
 
-  const SAVED_DEALS_KEY = 'divvit_saved_deals';
-  const SEEN_DEALS_KEY = 'divvit_seen_deals';
+  const SAVED_DEALS_KEY = user?.id ? `divvit_saved_deals_${user.id}` : 'divvit_saved_deals';
+  const SEEN_DEALS_KEY = user?.id ? `divvit_seen_deals_${user.id}` : 'divvit_seen_deals';
 
   // ─── Load deals on mount ───
   const loadDeals = useCallback(async () => {
@@ -539,21 +568,21 @@ export default function PromotionsScreen() {
     }
   }, []);
 
-  // Load saved and seen deals on mount
+  // Load saved and seen deals on mount or when user changes
   useEffect(() => {
     const loadSavedAndSeen = async () => {
       try {
         const saved = await AsyncStorage.getItem(SAVED_DEALS_KEY);
-        if (saved) setSavedDeals(JSON.parse(saved));
+        setSavedDeals(saved ? JSON.parse(saved) : []);
         const seen = await AsyncStorage.getItem(SEEN_DEALS_KEY);
-        if (seen) setSeenDeals(JSON.parse(seen));
+        setSeenDeals(seen ? JSON.parse(seen) : []);
       } catch (error) {
         console.error('Failed to load deals from AsyncStorage:', error);
       }
     };
     loadSavedAndSeen();
     loadDeals();
-  }, [loadDeals]);
+  }, [loadDeals, SAVED_DEALS_KEY, SEEN_DEALS_KEY]);
 
   // Save whenever savedDeals changes
   useEffect(() => {
@@ -564,10 +593,8 @@ export default function PromotionsScreen() {
         console.error('Failed to save deals:', error);
       }
     };
-    if (savedDeals.length > 0) {
-      persistSavedDeals();
-    }
-  }, [savedDeals]);
+    persistSavedDeals();
+  }, [savedDeals, SAVED_DEALS_KEY]);
 
   // Save whenever seenDeals changes:
   useEffect(() => {
@@ -578,10 +605,8 @@ export default function PromotionsScreen() {
         console.error('Failed to save seen deals:', error);
       }
     };
-    if (seenDeals.length > 0) {
-      persistSeenDeals();
-    }
-  }, [seenDeals]);
+    persistSeenDeals();
+  }, [seenDeals, SEEN_DEALS_KEY]);
 
   // Handle saving deal
   const handleDealSaved = useCallback((deal: Deal) => {
@@ -589,6 +614,12 @@ export default function PromotionsScreen() {
       if (prev.find(d => d.id === deal.id)) return prev;
       return [...prev, deal];
     });
+  }, []);
+
+  // Handle removing deal
+  const handleRemoveDeal = useCallback((dealId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSavedDeals(prev => prev.filter(d => d.id !== dealId));
   }, []);
 
   // Handle seen/swiped deal
@@ -632,7 +663,7 @@ export default function PromotionsScreen() {
       ) : activeTab === 'swipe' ? (
         <SwipeDealsView deals={unswipedDeals} onDealSaved={handleDealSaved} savedDeals={savedDeals} onDealSeen={handleDealSeen} />
       ) : (
-        <SavedPromosView savedDeals={savedDeals} setActiveTab={setActiveTab} />
+        <SavedPromosView savedDeals={savedDeals} setActiveTab={setActiveTab} onRemoveDeal={handleRemoveDeal} />
       )}
     </SafeAreaView>
   );
