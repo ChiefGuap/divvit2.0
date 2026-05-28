@@ -35,6 +35,8 @@ export default function ProfileSetupScreen() {
     const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [usernameFocused, setUsernameFocused] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [venmoHandle, setVenmoHandle] = useState('');
+    const [cashappHandle, setCashappHandle] = useState('');
 
     // OAuth avatar (Google/Apple)
     const oauthAvatar: string | null = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
@@ -94,6 +96,12 @@ export default function ProfileSetupScreen() {
                 profileData.avatar_url = photoUri;
             } else if (oauthAvatar) {
                 profileData.avatar_url = oauthAvatar;
+            }
+            if (venmoHandle.trim()) {
+                profileData.venmo_handle = venmoHandle.trim().replace(/^@/, '');
+            }
+            if (cashappHandle.trim()) {
+                profileData.cashapp_handle = cashappHandle.trim().replace(/^\$/, '');
             }
 
             const response = await fetch(`${supabaseUrl}/rest/v1/profiles`, {
@@ -284,83 +292,85 @@ export default function ProfileSetupScreen() {
                     {/* Venmo */}
                     <View style={{
                         backgroundColor: '#f1f3ff', borderRadius: 24, padding: 20,
-                        flexDirection: 'row', alignItems: 'center',
-                        justifyContent: 'space-between',
                         shadowColor: '#111827',
                         shadowOffset: { width: 0, height: 4 },
                         shadowOpacity: 0.04, shadowRadius: 16,
                         elevation: 2, marginBottom: 12,
                     }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 12 }}>
                             <View style={{
-                                width: 48, height: 48, borderRadius: 14,
+                                width: 40, height: 40, borderRadius: 12,
                                 backgroundColor: '#3d95ce',
                                 alignItems: 'center', justifyContent: 'center',
                                 flexShrink: 0,
                             }}>
-                                <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '800' }}>V</Text>
+                                <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '800' }}>V</Text>
                             </View>
                             <View>
-                                <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 }}>
-                                    Venmo
-                                </Text>
-                                <Text style={{ fontSize: 12, color: '#484554' }}>
-                                    Sync contacts & pay
+                                <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>
+                                    Venmo Handle
                                 </Text>
                             </View>
                         </View>
-                        <TouchableOpacity
-                            onPress={() => Alert.alert('Coming Soon', 'Venmo integration coming soon!')}
-                            activeOpacity={0.7}
-                            style={{
-                                backgroundColor: 'rgba(75,41,180,0.1)',
-                                paddingHorizontal: 16, paddingVertical: 8,
-                                borderRadius: 999,
-                            }}
-                        >
-                            <Text style={{ color: '#4b29b4', fontWeight: '700', fontSize: 13 }}>Connect</Text>
-                        </TouchableOpacity>
+                        <View style={{
+                            backgroundColor: '#ffffff',
+                            borderRadius: 12, height: 48,
+                            flexDirection: 'row', alignItems: 'center',
+                            paddingHorizontal: 12,
+                        }}>
+                            <Text style={{ fontSize: 16, fontWeight: '700', color: '#3d95ce', marginRight: 4 }}>@</Text>
+                            <TextInput
+                                style={{ flex: 1, fontSize: 14, fontWeight: '600', color: '#111827' }}
+                                placeholder="username"
+                                placeholderTextColor="rgba(72,69,84,0.4)"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                value={venmoHandle}
+                                onChangeText={setVenmoHandle}
+                            />
+                        </View>
                     </View>
 
                     {/* Cash App */}
                     <View style={{
                         backgroundColor: '#f1f3ff', borderRadius: 24, padding: 20,
-                        flexDirection: 'row', alignItems: 'center',
-                        justifyContent: 'space-between',
                         shadowColor: '#111827',
                         shadowOffset: { width: 0, height: 4 },
                         shadowOpacity: 0.04, shadowRadius: 16,
                         elevation: 2,
                     }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 12 }}>
                             <View style={{
-                                width: 48, height: 48, borderRadius: 14,
+                                width: 40, height: 40, borderRadius: 12,
                                 backgroundColor: '#00d036',
                                 alignItems: 'center', justifyContent: 'center',
                                 flexShrink: 0,
                             }}>
-                                <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '800' }}>$</Text>
+                                <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '800' }}>$</Text>
                             </View>
                             <View>
-                                <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 }}>
-                                    Cash App
-                                </Text>
-                                <Text style={{ fontSize: 12, color: '#484554' }}>
-                                    Instant transfers
+                                <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>
+                                    Cash App Handle
                                 </Text>
                             </View>
                         </View>
-                        <TouchableOpacity
-                            onPress={() => Alert.alert('Coming Soon', 'Cash App integration coming soon!')}
-                            activeOpacity={0.7}
-                            style={{
-                                backgroundColor: 'rgba(75,41,180,0.1)',
-                                paddingHorizontal: 16, paddingVertical: 8,
-                                borderRadius: 999,
-                            }}
-                        >
-                            <Text style={{ color: '#4b29b4', fontWeight: '700', fontSize: 13 }}>Connect</Text>
-                        </TouchableOpacity>
+                        <View style={{
+                            backgroundColor: '#ffffff',
+                            borderRadius: 12, height: 48,
+                            flexDirection: 'row', alignItems: 'center',
+                            paddingHorizontal: 12,
+                        }}>
+                            <Text style={{ fontSize: 16, fontWeight: '700', color: '#00d036', marginRight: 4 }}>$</Text>
+                            <TextInput
+                                style={{ flex: 1, fontSize: 14, fontWeight: '600', color: '#111827' }}
+                                placeholder="username"
+                                placeholderTextColor="rgba(72,69,84,0.4)"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                value={cashappHandle}
+                                onChangeText={setCashappHandle}
+                            />
+                        </View>
                     </View>
 
                     <Text style={{
