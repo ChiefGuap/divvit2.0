@@ -53,23 +53,41 @@ const SegmentedControl = ({ activeTab, setActiveTab }: { activeTab: string; setA
 );
 
 // ─── Countdown ───
-const Countdown = () => {
-  const [timeLeft, setTimeLeft] = useState('04:12:45');
+const Countdown = ({ onTriggerDrop }: { onTriggerDrop: () => void }) => {
+  const [timeLeft, setTimeLeft] = useState('00:00:00');
+
   useEffect(() => {
-    const target = new Date();
-    target.setHours(target.getHours() + 4);
-    target.setMinutes(target.getMinutes() + 12);
-    target.setSeconds(target.getSeconds() + 45);
-    const interval = setInterval(() => {
-      const diff = target.getTime() - Date.now();
-      if (diff <= 0) { setTimeLeft('00:00:00'); clearInterval(interval); return; }
+    const updateTimer = () => {
+      const now = new Date();
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      const diff = midnight.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeLeft('00:00:00');
+        onTriggerDrop();
+        return false; // Stop timer
+      }
+
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       const sec = Math.floor((diff % 60000) / 1000);
-      setTimeLeft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`);
+      setTimeLeft(
+        `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+      );
+      return true;
+    };
+
+    updateTimer();
+    const interval = setInterval(() => {
+      const active = updateTimer();
+      if (!active) {
+        clearInterval(interval);
+      }
     }, 1000);
+
     return () => clearInterval(interval);
-  }, []);
+  }, [onTriggerDrop]);
+
   return (
     <View style={s.countdownRow}>
       <Text style={s.countdownLabel}>NEXT EXCLUSIVE DROP IN:  </Text>
@@ -674,13 +692,20 @@ export default function PromotionsScreen() {
     }
   }, [getRandomizedDailyDeals]);
 
+  // ─── Handle dynamic new daily drop when countdown hits 0 ───
+  const handleTriggerDrop = useCallback(() => {
+    setSeenDeals([]);
+    AsyncStorage.removeItem(SEEN_DEALS_KEY).catch(() => {});
+    loadDeals();
+  }, [loadDeals, SEEN_DEALS_KEY]);
+
   // ─── Render ───
   return (
     <SafeAreaView style={s.safeArea} edges={['top']}>
       <TabHeader points={userPoints} />
       <SegmentedControl activeTab={activeTab} setActiveTab={setActiveTab} />
       <RadiusFilter radius={radius} setRadius={setRadius} />
-      <Countdown />
+      <Countdown onTriggerDrop={handleTriggerDrop} />
       {loading ? (
         <LoadingState />
       ) : error ? (
