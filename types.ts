@@ -39,6 +39,7 @@ export type BillItem = {
     price: number;
     quantity: number;
     assigned_to: string | null; // bill_participants.id
+    assigned_ids?: string | null; // comma-separated bill_participants.id list
     created_at?: string;
     updated_at?: string;
 };

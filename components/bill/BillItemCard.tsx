@@ -21,7 +21,7 @@ interface BillItem {
 interface Props {
     item: BillItem;
     index: number;
-    priceInput: string;
+    priceInput?: string;
     uniqueAssignees: string[];
     activeUsers: User[];
     onNameChange: (text: string) => void;

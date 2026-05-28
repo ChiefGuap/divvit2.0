@@ -109,6 +109,74 @@ export const assignItem = async (
     return data as BillItem;
 };
 
+export const assignItemMulti = async (
+    itemId: string,
+    participantIds: string[]
+): Promise<BillItem> => {
+    const assignedIds = participantIds.length > 0 ? participantIds.join(',') : null;
+    const assignedTo = participantIds.length > 0 ? participantIds[0] : null;
+
+    const { data, error } = await supabase
+        .from('bill_items')
+        .update({ 
+            assigned_ids: assignedIds,
+            assigned_to: assignedTo 
+        })
+        .eq('id', itemId)
+        .select()
+        .single();
+    if (error) throw error;
+    return data as BillItem;
+};
+
+export const assignAllItemsMulti = async (
+    billId: string,
+    participantIds: string[]
+): Promise<void> => {
+    const assignedIds = participantIds.length > 0 ? participantIds.join(',') : null;
+    const assignedTo = participantIds.length > 0 ? participantIds[0] : null;
+
+    const { error } = await supabase
+        .from('bill_items')
+        .update({ 
+            assigned_ids: assignedIds,
+            assigned_to: assignedTo 
+        })
+        .eq('bill_id', billId);
+    if (error) throw error;
+};
+
+export const clearAllAssignmentsMulti = async (
+    billId: string
+): Promise<void> => {
+    const { error } = await supabase
+        .from('bill_items')
+        .update({ 
+            assigned_ids: null,
+            assigned_to: null 
+        })
+        .eq('bill_id', billId);
+    if (error) throw error;
+};
+
+export const randomizeAssignmentsMulti = async (
+    updates: Array<{ id: string; assigned_ids: string; assigned_to: string }>
+): Promise<void> => {
+    const promises = updates.map(update => 
+        supabase
+            .from('bill_items')
+            .update({ 
+                assigned_ids: update.assigned_ids,
+                assigned_to: update.assigned_to 
+            })
+            .eq('id', update.id)
+    );
+    const results = await Promise.all(promises);
+    for (const res of results) {
+        if (res.error) throw res.error;
+    }
+};
+
 // ─── PARTICIPANTS ───────────────────────────────────────────────────────────
 
 export const getParticipants = async (billId: string): Promise<Participant[]> => {

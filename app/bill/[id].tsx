@@ -26,6 +26,10 @@ import {
     updateBillItem,
     deleteBillItem,
     assignItem,
+    assignItemMulti,
+    assignAllItemsMulti,
+    clearAllAssignmentsMulti,
+    randomizeAssignmentsMulti,
     subscribeToBillItems,
     subscribeToBillStatus,
     subscribeToParticipants,
@@ -325,7 +329,9 @@ export default function BillEditorScreen() {
         if (isFromParty) {
             const map: Record<string, string[]> = {};
             syncItems.forEach(si => {
-                if (si.assigned_to) {
+                if (si.assigned_ids) {
+                    map[si.id] = si.assigned_ids.split(',').filter(Boolean);
+                } else if (si.assigned_to) {
                     map[si.id] = [si.assigned_to];
                 }
             });
@@ -401,9 +407,9 @@ export default function BillEditorScreen() {
     // ─── Party mode (GUEST only): single-assignment item claiming via bill_items table ───
     // Host uses the multi-assign local state path instead (see handleAssignItem).
     const handleSyncAssignItem = async (itemId: string) => {
-        const targetParticipantId = isHost ? selectedUserIds[0] : myParticipantId;
+        const targetIds = isHost ? selectedUserIds : (myParticipantId ? [myParticipantId] : []);
 
-        if (!targetParticipantId) {
+        if (targetIds.length === 0) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             return;
         }
@@ -411,28 +417,43 @@ export default function BillEditorScreen() {
         const item = syncItems.find(i => i.id === itemId);
         if (!item) return;
 
-        // Guests can't claim items already assigned to someone else
-        if (!isHost && item.assigned_to && item.assigned_to !== targetParticipantId) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            return;
+        const currentAssignees = item.assigned_ids
+            ? item.assigned_ids.split(',').filter(Boolean)
+            : (item.assigned_to ? [item.assigned_to] : []);
+
+        let newAssignees: string[];
+        if (isHost) {
+            const allAlreadyAssigned = targetIds.every(uid => currentAssignees.includes(uid));
+            if (allAlreadyAssigned) {
+                newAssignees = currentAssignees.filter(uid => !targetIds.includes(uid));
+            } else {
+                newAssignees = Array.from(new Set([...currentAssignees, ...targetIds]));
+            }
+        } else {
+            const myId = myParticipantId!;
+            if (currentAssignees.includes(myId)) {
+                newAssignees = currentAssignees.filter(uid => uid !== myId);
+            } else {
+                newAssignees = [...currentAssignees, myId];
+            }
         }
 
-        const isTargetItem = item.assigned_to === targetParticipantId;
-        const newAssignment = isTargetItem ? null : targetParticipantId;
+        const newAssignedIds = newAssignees.join(',');
+        const newAssignedTo = newAssignees.length > 0 ? newAssignees[0] : null;
 
         // Optimistic update
         setSyncItems(prev => prev.map(i =>
-            i.id === itemId ? { ...i, assigned_to: newAssignment } : i
+            i.id === itemId ? { ...i, assigned_ids: newAssignedIds, assigned_to: newAssignedTo } : i
         ));
         Haptics.selectionAsync();
 
         // Persist to Supabase (triggers realtime for others)
         try {
-            await assignItem(itemId, newAssignment);
+            await assignItemMulti(itemId, newAssignees);
         } catch (error) {
             // Revert optimistic update on failure
             setSyncItems(prev => prev.map(i =>
-                i.id === itemId ? { ...i, assigned_to: item.assigned_to } : i
+                i.id === itemId ? { ...i, assigned_ids: item.assigned_ids, assigned_to: item.assigned_to } : i
             ));
             console.error('BillEditor: Failed to assign item:', error);
             Alert.alert('Error', 'Failed to assign item. Try again.');
@@ -710,49 +731,139 @@ export default function BillEditorScreen() {
         );
     };
 
-    const handleSplitEvenly = () => {
+    const handleSplitEvenly = async () => {
         const allUserIds = activeUsers.map(u => u.id);
-        const newAssignments: Record<string, string[]> = {};
-        items.forEach(item => {
-            if (item.name || item.price > 0) newAssignments[item.id] = [...allUserIds];
-        });
-        setAssignments(newAssignments);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    };
 
-    const handleRandomize = () => {
-        const newAssignments: Record<string, string[]> = {};
-        items.forEach(item => {
-            if (item.name || item.price > 0) {
-                const randomUser = activeUsers[Math.floor(Math.random() * activeUsers.length)];
-                newAssignments[item.id] = [randomUser.id];
+        if (isFromParty) {
+            if (!isHost || !id) return;
+            const assignedIdsString = allUserIds.join(',');
+            const assignedTo = allUserIds.length > 0 ? allUserIds[0] : null;
+
+            // Optimistic update
+            setSyncItems(prev => prev.map(i => ({
+                ...i,
+                assigned_ids: assignedIdsString,
+                assigned_to: assignedTo
+            })));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            try {
+                await assignAllItemsMulti(id, allUserIds);
+            } catch (err) {
+                console.error('BillEditor: Failed to split evenly:', err);
+                Alert.alert('Error', 'Failed to split evenly. Please try again.');
             }
-        });
-        setAssignments(newAssignments);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+            const newAssignments: Record<string, string[]> = {};
+            items.forEach(item => {
+                if (item.name || item.price > 0) newAssignments[item.id] = [...allUserIds];
+            });
+            setAssignments(newAssignments);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
     };
 
-    const handleClearAssignments = () => {
-        setAssignments({});
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    const handleRandomize = async () => {
+        if (isFromParty) {
+            if (!isHost || !id) return;
+            
+            const updates = syncItems.map(item => {
+                const randomUser = activeUsers[Math.floor(Math.random() * activeUsers.length)];
+                return {
+                    id: item.id,
+                    assigned_ids: randomUser.id,
+                    assigned_to: randomUser.id
+                };
+            });
+
+            // Optimistic update
+            setSyncItems(prev => prev.map(i => {
+                const update = updates.find(u => u.id === i.id);
+                return update ? { ...i, assigned_ids: update.assigned_ids, assigned_to: update.assigned_to } : i;
+            }));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            try {
+                await randomizeAssignmentsMulti(updates);
+            } catch (err) {
+                console.error('BillEditor: Failed to randomize:', err);
+                Alert.alert('Error', 'Failed to randomize assignments. Please try again.');
+            }
+        } else {
+            const newAssignments: Record<string, string[]> = {};
+            items.forEach(item => {
+                if (item.name || item.price > 0) {
+                    const randomUser = activeUsers[Math.floor(Math.random() * activeUsers.length)];
+                    newAssignments[item.id] = [randomUser.id];
+                }
+            });
+            setAssignments(newAssignments);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
     };
 
-    const handleApplyCustomSplit = () => {
+    const handleClearAssignments = async () => {
+        if (isFromParty) {
+            if (!isHost || !id) return;
+
+            // Optimistic update
+            setSyncItems(prev => prev.map(i => ({
+                ...i,
+                assigned_ids: null,
+                assigned_to: null
+            })));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            try {
+                await clearAllAssignmentsMulti(id);
+            } catch (err) {
+                console.error('BillEditor: Failed to clear assignments:', err);
+                Alert.alert('Error', 'Failed to clear assignments. Please try again.');
+            }
+        } else {
+            setAssignments({});
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
+    };
+
+    const handleApplyCustomSplit = async () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const newAssignments: Record<string, string[]> = {};
         const proportionalShares: string[] = [];
         activeUsers.forEach(u => {
             const pct = parseFloat(customPctInputs[u.id]) || 0;
             const shares = Math.round(pct * 10);
             for (let i = 0; i < shares; i++) proportionalShares.push(u.id);
         });
-        items.forEach(item => {
-            if (item.name || item.price > 0) {
-                if (proportionalShares.length > 0) newAssignments[item.id] = [...proportionalShares];
+
+        if (isFromParty) {
+            if (!isHost || !id) return;
+            const assignedIdsString = proportionalShares.join(',');
+            const assignedTo = proportionalShares.length > 0 ? proportionalShares[0] : null;
+
+            // Optimistic update
+            setSyncItems(prev => prev.map(i => ({
+                ...i,
+                assigned_ids: assignedIdsString,
+                assigned_to: assignedTo
+            })));
+            setShowCustomSplitModal(false);
+
+            try {
+                await assignAllItemsMulti(id, proportionalShares);
+            } catch (err) {
+                console.error('BillEditor: Failed to apply custom split:', err);
+                Alert.alert('Error', 'Failed to apply custom split. Please try again.');
             }
-        });
-        setAssignments(newAssignments);
-        setShowCustomSplitModal(false);
+        } else {
+            const newAssignments: Record<string, string[]> = {};
+            items.forEach(item => {
+                if (item.name || item.price > 0) {
+                    if (proportionalShares.length > 0) newAssignments[item.id] = [...proportionalShares];
+                }
+            });
+            setAssignments(newAssignments);
+            setShowCustomSplitModal(false);
+        }
     };
 
     const handleSaveAsDraft = async () => {
@@ -884,8 +995,9 @@ export default function BillEditorScreen() {
                         {isFromParty ? (
                             /* ── Party mode (host or guest): render from bill_items table with realtime assignment ── */
                             syncItems.length > 0 ? syncItems.map((syncItem, index) => {
-                                const assigneeId = syncItem.assigned_to;
-                                const uniqueAssignees = assigneeId ? [assigneeId] : [];
+                                const uniqueAssignees = syncItem.assigned_ids
+                                    ? syncItem.assigned_ids.split(',').filter(Boolean)
+                                    : (syncItem.assigned_to ? [syncItem.assigned_to].filter(Boolean) as string[] : []);
 
                                 return (
                                     <BillItemCard
