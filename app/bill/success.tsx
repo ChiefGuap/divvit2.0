@@ -31,14 +31,48 @@ export default function SuccessScreen() {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadComplete, setUploadComplete] = useState(false);
     const [bonusPoints, setBonusPoints] = useState<number | null>(null);
+    const [pointsBreakdown, setPointsBreakdown] = useState<string[]>([]);
 
     const fetchBonusPoints = async () => {
         if (!user?.id || !billId) return;
         for (let attempt = 0; attempt < POINTS_FETCH_RETRIES; attempt++) {
             try {
-                const { total } = await getPointsForBill(user.id, billId);
+                const { total, entries } = await getPointsForBill(user.id, billId);
                 if (total > 0 || attempt === POINTS_FETCH_RETRIES - 1) {
                     setBonusPoints(total);
+
+                    const breakdown: string[] = [];
+                    const splitBillEntry = entries.find(e => e.event_type === 'split_bill');
+                    if (splitBillEntry) {
+                        breakdown.push(`• ${splitBillEntry.points} pts for splitting the bill`);
+                    }
+
+                    const firstSplitEntry = entries.find(e => e.event_type === 'first_split_bonus');
+                    if (firstSplitEntry) {
+                        breakdown.push(`• ${firstSplitEntry.points} pts first split bonus! 🚀`);
+                    }
+
+                    const divvitUserEntry = entries.find(e => e.event_type === 'split_with_divvit_user');
+                    if (divvitUserEntry) {
+                        breakdown.push(`• ${divvitUserEntry.points} pts split with Divvit users`);
+                    }
+
+                    const streak3Entry = entries.find(e => e.event_type === 'streak_3_day');
+                    if (streak3Entry) {
+                        breakdown.push(`• ${streak3Entry.points} pts 3-day streak bonus! 🔥`);
+                    }
+
+                    const streak7Entry = entries.find(e => e.event_type === 'streak_7_day');
+                    if (streak7Entry) {
+                        breakdown.push(`• ${streak7Entry.points} pts 7-day streak bonus! 🎉`);
+                    }
+
+                    const photoEntry = entries.find(e => e.event_type === 'group_photo_bonus');
+                    if (photoEntry) {
+                        breakdown.push(`• ${photoEntry.points} pts group photo bonus! 📸`);
+                    }
+
+                    setPointsBreakdown(breakdown);
                     rewards.refresh().catch(() => { });
                     return;
                 }
@@ -211,6 +245,16 @@ export default function SuccessScreen() {
                             ? 'Tallying up your rewards…'
                             : `You earned ${bonusPoints} pts through this split`}
                     </Text>
+
+                    {pointsBreakdown.length > 0 && (
+                        <View style={{ marginTop: 12, alignItems: 'center', gap: 6 }}>
+                            {pointsBreakdown.map((item, idx) => (
+                                <Text key={idx} style={{ fontSize: 13, color: '#6346cd', fontWeight: '700' }}>
+                                    {item}
+                                </Text>
+                            ))}
+                        </View>
+                    )}
                 </View>
 
                 {/* Take Group Picture Button */}

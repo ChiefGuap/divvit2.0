@@ -194,12 +194,13 @@ export const getParticipants = async (billId: string): Promise<Participant[]> =>
 export const createPaymentRequests = async (
     billId: string,
     hostUserId: string,
-    participants: Array<{ userId: string; amount: number }>
+    participants: Array<{ participantId: string; userId: string | null; amount: number }>
 ) => {
     const requests = participants
         .filter(p => p.userId !== hostUserId && p.amount > 0)
         .map(p => ({
             bill_id: billId,
+            from_participant_id: p.participantId,
             from_user_id: p.userId,
             to_user_id: hostUserId,
             amount: p.amount,

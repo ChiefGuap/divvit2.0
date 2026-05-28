@@ -374,11 +374,12 @@ export default function TipScreen() {
 
                 if (billUpdateError) throw billUpdateError;
 
-                // Create payment requests for non-host participants with auth user_ids
+                // Create payment requests for all non-host participants (both registered users and guests)
                 const paymentParticipants = partyParticipants
-                    .filter(p => p.user_id && p.user_id !== hostId)
+                    .filter(p => p.user_id !== hostId)
                     .map(p => ({
-                        userId: p.user_id!,
+                        participantId: p.id,
+                        userId: p.user_id || null,
                         amount: Math.round((shares[p.id] || 0) * 100) / 100,
                     }));
 

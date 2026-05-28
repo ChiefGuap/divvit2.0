@@ -48,7 +48,8 @@ export type BillItem = {
 export type PaymentRequest = {
     id: string;
     bill_id: string;
-    from_user_id: string;
+    from_participant_id?: string | null;
+    from_user_id: string | null;
     to_user_id: string;
     amount: number;
     status: 'pending' | 'sent' | 'confirmed';

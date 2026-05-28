@@ -85,10 +85,12 @@ export default function PaymentScreen() {
         [participants, user]
     );
 
-    const myPaymentRequest = useMemo(
-        () => paymentRequests.find(pr => pr.from_user_id === user?.id),
-        [paymentRequests, user]
-    );
+    const myPaymentRequest = useMemo(() => {
+        return paymentRequests.find(
+            pr => pr.from_participant_id === myParticipant?.id ||
+                  (pr.from_user_id && pr.from_user_id === user?.id)
+        );
+    }, [paymentRequests, myParticipant, user]);
 
     // ─── SHARE CALCULATION ─────────────────────────────────────────────────────
 
@@ -146,7 +148,7 @@ export default function PaymentScreen() {
 
     const allPaymentsSettled = useMemo(() => {
         if (paymentRequests.length === 0) {
-            const needsPayment = participants.filter(p => p.user_id !== hostId && !p.is_guest);
+            const needsPayment = participants.filter(p => p.user_id !== hostId);
             return needsPayment.length === 0;
         }
         return paymentRequests.every(pr => pr.status === 'confirmed');
@@ -429,7 +431,10 @@ export default function PaymentScreen() {
     };
 
     const handleParticipantAction = useCallback((participant: Participant) => {
-        const request = paymentRequests.find(pr => pr.from_user_id === participant.user_id);
+        const request = paymentRequests.find(
+            pr => pr.from_participant_id === participant.id ||
+                  (pr.from_user_id && participant.user_id && pr.from_user_id === participant.user_id)
+        );
         const amount = request?.amount || (shares[participant.id] || 0);
         const profile = participant.user_id ? participantProfiles[participant.user_id] : null;
 
@@ -948,18 +953,17 @@ export default function PaymentScreen() {
                 {participants.map((participant, index) => {
                     const isParticipantHost = participant.user_id === hostId;
                     const request = paymentRequests.find(
-                        pr => pr.from_user_id === participant.user_id
+                        pr => pr.from_participant_id === participant.id ||
+                              (pr.from_user_id && participant.user_id && pr.from_user_id === participant.user_id)
                     );
                     const amount = isParticipantHost
                         ? (shares[participant.id] || 0)
                         : (request?.amount || shares[participant.id] || 0);
                     const status = isParticipantHost
                         ? 'host'
-                        : participant.is_guest
-                            ? 'external'
-                            : (request?.status || 'pending');
+                        : (request?.status || (participant.is_guest ? 'external' : 'pending'));
 
-                    const canTap = !isParticipantHost && !participant.is_guest && status !== 'confirmed';
+                    const canTap = !isParticipantHost && status !== 'confirmed';
 
                     return (
                         <Animated.View
