@@ -172,7 +172,7 @@ export default function PartySizeScreen() {
               if (count > 1) animateCountChange(count - 1);
             }}
           >
-            <MinusCircle size={48} color={COLORS.primary} />
+            <MinusCircle size={32} color={COLORS.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -182,7 +182,7 @@ export default function PartySizeScreen() {
               if (count < 99) animateCountChange(count + 1);
             }}
           >
-            <PlusCircle size={48} color={COLORS.primary} />
+            <PlusCircle size={32} color={COLORS.primary} />
           </TouchableOpacity>
         </View>
 
@@ -242,13 +242,10 @@ const s = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: Platform.OS === 'ios' ? 90 : 70,
-    zIndex: 10,
-    backgroundColor: 'rgba(252,244,255,0.85)',
+    height: 60,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(99,70,205,0.05)',
   },
   headerContent: {
     flexDirection: 'row',
@@ -256,7 +253,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 24,
     height: 60,
-    marginTop: Platform.OS === 'ios' ? 24 : 5,
+    marginTop: 0,
   },
   backButton: {
     width: 40,
@@ -290,59 +287,59 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   scrollContent: {
-    paddingTop: Platform.OS === 'ios' ? 100 : 80,
-    paddingBottom: 48,
+    paddingTop: 12,
+    paddingBottom: 24,
   },
   editorialHeader: {
     paddingHorizontal: 24,
-    marginTop: 24,
+    marginTop: 12,
   },
   pillBadge: {
     backgroundColor: 'rgba(99,70,205,0.1)',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     borderRadius: 999,
     alignSelf: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   pillBadgeText: {
     color: COLORS.primary,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     letterSpacing: 2,
   },
   headline: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: '800',
     color: COLORS.onSurface,
     letterSpacing: -0.5,
-    lineHeight: 40,
+    lineHeight: 34,
   },
   headlineHighlight: {
     color: COLORS.primary,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.outline,
     fontWeight: '500',
-    marginTop: 8,
+    marginTop: 4,
   },
   counterCard: {
     backgroundColor: COLORS.primary,
-    borderRadius: 28,
-    padding: 40,
-    marginTop: 24,
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 16,
     marginHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 280,
+    minHeight: 180,
     position: 'relative',
     overflow: 'hidden',
     shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.25,
-    shadowRadius: 40,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 30,
+    elevation: 6,
   },
   circle1: {
     position: 'absolute',
@@ -368,36 +365,36 @@ const s = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 3,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   counterNumber: {
     color: 'white',
-    fontSize: 120,
+    fontSize: 80,
     fontWeight: '800',
-    letterSpacing: -4,
-    lineHeight: 120,
+    letterSpacing: -3,
+    lineHeight: 80,
   },
   peopleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 8,
+    marginTop: 4,
   },
   peopleText: {
     color: 'white',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 15,
   },
   buttonsRow: {
     flexDirection: 'row',
     gap: 16,
-    marginTop: 16,
+    marginTop: 12,
     marginHorizontal: 24,
   },
   counterButton: {
     flex: 1,
-    height: 100,
-    borderRadius: 24,
+    height: 54,
+    borderRadius: 16,
     backgroundColor: 'white',
     alignItems: 'center',
     justifyContent: 'center',
@@ -408,25 +405,25 @@ const s = StyleSheet.create({
     elevation: 3,
   },
   quickSelectSection: {
-    marginTop: 24,
+    marginTop: 16,
     marginHorizontal: 24,
   },
   quickSelectLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: COLORS.outline,
     letterSpacing: 2,
     textTransform: 'uppercase',
-    marginBottom: 14,
+    marginBottom: 8,
   },
   quickSelectScroll: {
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   quickSelectPill: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginHorizontal: 6,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginHorizontal: 5,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -448,7 +445,7 @@ const s = StyleSheet.create({
     elevation: 1,
   },
   quickSelectText: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '800',
   },
   quickSelectTextSelected: {
@@ -458,12 +455,12 @@ const s = StyleSheet.create({
     color: COLORS.onSurface,
   },
   continueContainer: {
-    marginTop: 32,
+    marginTop: 20,
     paddingHorizontal: 24,
   },
   continueButton: {
     width: '100%',
-    height: 60,
+    height: 54,
     borderRadius: 999,
     backgroundColor: COLORS.primary,
     flexDirection: 'row',
@@ -471,14 +468,14 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 4,
   },
   continueText: {
     color: 'white',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
   },
 });
