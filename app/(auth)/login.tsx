@@ -173,6 +173,49 @@ export default function Login() {
         }
     };
 
+    const handleDevBypass = async () => {
+        if (isLoading) return;
+        setIsLoading(true);
+        setError(null);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        try {
+            const testEmail = 'test@example.com';
+            const testPassword = 'password123';
+            
+            console.log('DevBypass: Attempting sign in...');
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email: testEmail,
+                password: testPassword
+            });
+            
+            if (signInError) {
+                console.log('DevBypass: User does not exist, creating new test user...', signInError.message);
+                const { error: signUpError } = await supabase.auth.signUp({
+                    email: testEmail,
+                    password: testPassword,
+                });
+                if (signUpError) {
+                    console.error('DevBypass: Auto sign up error:', signUpError);
+                    setError(signUpError.message);
+                    return;
+                }
+                console.log('DevBypass: Auto sign up success, signing in...');
+                const { error: retryError } = await supabase.auth.signInWithPassword({
+                    email: testEmail,
+                    password: testPassword
+                });
+                if (retryError) {
+                    console.error('DevBypass: Retry sign in error:', retryError);
+                    setError(retryError.message);
+                }
+            }
+        } catch (e: any) {
+            setError(e.message || 'Developer bypass failed');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff' }} edges={['top', 'bottom']}>
             <StatusBar style="dark" />
@@ -424,6 +467,27 @@ export default function Login() {
                                     <AppleIcon />
                                     <Text style={{ fontSize: 15, fontWeight: '600', color: '#ffffff' }}>
                                         Continue with Apple
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {/* Developer Bypass (Localhost only) */}
+                            {__DEV__ && (
+                                <TouchableOpacity
+                                    onPress={handleDevBypass}
+                                    activeOpacity={0.85}
+                                    style={{
+                                        height: 56, borderRadius: 999,
+                                        backgroundColor: '#fff0f3',
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(220,38,38,0.2)',
+                                        flexDirection: 'row', alignItems: 'center',
+                                        justifyContent: 'center', gap: 12,
+                                        marginTop: 12,
+                                    }}
+                                >
+                                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#dc2626' }}>
+                                        ⚡️ Developer Bypass (Bypass Login)
                                     </Text>
                                 </TouchableOpacity>
                             )}
