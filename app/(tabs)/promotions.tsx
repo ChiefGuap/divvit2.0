@@ -554,19 +554,43 @@ export default function PromotionsScreen() {
   const SAVED_DEALS_KEY = user?.id ? `divvit_saved_deals_${user.id}` : 'divvit_saved_deals';
   const SEEN_DEALS_KEY = user?.id ? `divvit_seen_deals_${user.id}` : 'divvit_seen_deals';
 
+  // ─── Get dynamic, daily-deterministic 20 random promotions ───
+  const getRandomizedDailyDeals = useCallback((rawDeals: Deal[]) => {
+    if (!user?.id || rawDeals.length === 0) {
+      return rawDeals.slice(0, 20);
+    }
+    const dateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const getDailySeedHash = (dealId: string, userId: string, dStr: string) => {
+      const combined = `${dealId}_${userId}_${dStr}`;
+      let hash = 0;
+      for (let i = 0; i < combined.length; i++) {
+        hash = (hash << 5) - hash + combined.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    };
+
+    return rawDeals
+      .map(d => ({ deal: d, hash: getDailySeedHash(d.id, user.id, dateStr) }))
+      .sort((a, b) => a.hash - b.hash)
+      .map(x => x.deal)
+      .slice(0, 20);
+  }, [user?.id]);
+
   // ─── Load deals on mount ───
   const loadDeals = useCallback(async () => {
     try {
       setError(false);
       const fetched = await fetchDeals();
-      setDeals(fetched.length > 0 ? fetched : MOCK_DEALS);
+      const rawDeals = fetched.length > 0 ? fetched : MOCK_DEALS;
+      setDeals(getRandomizedDailyDeals(rawDeals));
     } catch (err) {
       console.error('[Promotions] Failed to load deals:', err);
-      setDeals(MOCK_DEALS);
+      setDeals(getRandomizedDailyDeals(MOCK_DEALS));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getRandomizedDailyDeals]);
 
   // Load saved and seen deals on mount or when user changes
   useEffect(() => {
@@ -641,13 +665,14 @@ export default function PromotionsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const fresh = await forceRefreshDeals();
-      setDeals(fresh.length > 0 ? fresh : MOCK_DEALS);
+      const rawDeals = fresh.length > 0 ? fresh : MOCK_DEALS;
+      setDeals(getRandomizedDailyDeals(rawDeals));
     } catch (err) {
       console.error('[Promotions] Refresh failed:', err);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [getRandomizedDailyDeals]);
 
   // ─── Render ───
   return (
