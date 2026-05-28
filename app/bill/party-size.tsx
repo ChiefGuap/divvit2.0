@@ -120,11 +120,7 @@ export default function PartySizeScreen() {
         </View>
       </BlurView>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scrollContent}
-      >
+      <View style={s.mainContainer}>
         {/* EDITORIAL HEADER SECTION */}
         <View style={s.editorialHeader}>
           <View style={s.pillBadge}>
@@ -235,7 +231,7 @@ export default function PartySizeScreen() {
             <ArrowRight size={22} color="white" />
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -290,10 +286,10 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scrollContent: {
+  mainContainer: {
+    flex: 1,
     paddingTop: 12,
     paddingBottom: 24,
-    flexGrow: 1,
   },
   editorialHeader: {
     paddingHorizontal: 24,
@@ -332,12 +328,12 @@ const s = StyleSheet.create({
   counterCard: {
     backgroundColor: COLORS.primary,
     borderRadius: 24,
-    padding: 20,
+    padding: 24,
     marginTop: 16,
     marginHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 180,
+    minHeight: 220,
     position: 'relative',
     overflow: 'hidden',
     shadowColor: COLORS.primary,
@@ -398,7 +394,7 @@ const s = StyleSheet.create({
   },
   counterButton: {
     flex: 1,
-    height: 54,
+    height: 58,
     borderRadius: 16,
     backgroundColor: 'white',
     alignItems: 'center',
@@ -425,9 +421,9 @@ const s = StyleSheet.create({
     paddingVertical: 2,
   },
   quickSelectPill: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     marginHorizontal: 5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -465,7 +461,7 @@ const s = StyleSheet.create({
   },
   continueButton: {
     width: '100%',
-    height: 54,
+    height: 58,
     borderRadius: 999,
     backgroundColor: COLORS.primary,
     flexDirection: 'row',
