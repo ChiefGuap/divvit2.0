@@ -23,7 +23,7 @@ import { getInitials } from '../../types';
 
 import ContactInfoCard from '../../components/profile/ContactInfoCard';
 import PaymentAccountsCard from '../../components/profile/PaymentAccountsCard';
-import QuickStatsCard from '../../components/profile/QuickStatsCard';
+
 
 export default function ProfileScreen() {
     const router = useRouter();
@@ -252,7 +252,7 @@ export default function ProfileScreen() {
                             setApplePayHandle={setApplePayHandle}
                         />
 
-                        <QuickStatsCard totalSavings="$2,450.80" />
+
 
                         {/* Logout Action */}
                         <View className="mt-8 mb-12">
