@@ -167,18 +167,6 @@ export default function SignupScreen() {
                     flexDirection: 'row', alignItems: 'center',
                     paddingHorizontal: 24, paddingTop: 56, paddingBottom: 8,
                 }}>
-                    <View style={{ width: 28, height: 20, position: 'relative', marginRight: 8 }}>
-                        <View style={{
-                            position: 'absolute', left: 0, bottom: 0,
-                            width: 14, height: 14, borderRadius: 7,
-                            backgroundColor: '#4b29b4',
-                        }} />
-                        <View style={{
-                            position: 'absolute', right: 0, top: 0,
-                            width: 11, height: 11, borderRadius: 5.5,
-                            backgroundColor: '#4b29b4',
-                        }} />
-                    </View>
                     <DivvitLogo />
                 </Animated.View>
 
@@ -329,25 +317,11 @@ export default function SignupScreen() {
                     opacity: bottomAnim,
                     alignItems: 'center', paddingTop: 32, paddingBottom: 32,
                 }}>
-                    <View style={{ flexDirection: 'row', gap: 24, marginBottom: 8 }}>
-                        <Text style={{
-                            fontSize: 11, fontWeight: '700', letterSpacing: 1.5,
-                            textTransform: 'uppercase', color: 'rgba(20,27,43,0.35)',
-                        }}>
-                            Instagram
-                        </Text>
-                        <Text style={{
-                            fontSize: 11, fontWeight: '700', letterSpacing: 1.5,
-                            textTransform: 'uppercase', color: 'rgba(20,27,43,0.35)',
-                        }}>
-                            Twitter
-                        </Text>
-                    </View>
                     <Text style={{
                         fontSize: 11, fontWeight: '700', letterSpacing: 1.5,
                         textTransform: 'uppercase', color: 'rgba(20,27,43,0.35)',
                     }}>
-                        © 2024 Divvit Technologies
+                        © 2026 Divvit
                     </Text>
                 </Animated.View>
             </ScrollView>

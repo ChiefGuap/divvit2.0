@@ -87,18 +87,6 @@ export default function SocialFinanceScreen() {
                 flexDirection: 'row', alignItems: 'center',
                 paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12,
             }]}>
-                <View style={{ width: 28, height: 20, position: 'relative', marginRight: 8 }}>
-                    <View style={{
-                        position: 'absolute', left: 0, bottom: 0,
-                        width: 14, height: 14, borderRadius: 7,
-                        backgroundColor: '#4b29b4',
-                    }} />
-                    <View style={{
-                        position: 'absolute', right: 0, top: 0,
-                        width: 11, height: 11, borderRadius: 5.5,
-                        backgroundColor: '#4b29b4',
-                    }} />
-                </View>
                 <Text style={{ fontWeight: '800', fontSize: 22, color: '#4b29b4', letterSpacing: -0.5 }}>
                     Divvit
                 </Text>
@@ -245,7 +233,7 @@ export default function SocialFinanceScreen() {
                         color: 'rgba(20,27,43,0.35)', letterSpacing: 2,
                         textTransform: 'uppercase', textAlign: 'center',
                     }}>
-                        © 2024 Divvit Technologies
+                        © 2026 Divvit
                     </Text>
                 </Animated.View>
             </View>
