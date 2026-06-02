@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, SlideInDown } from 'react-native-reanimated';
 import { ArrowLeft, Calendar, CheckCircle, Clock, Receipt, ChevronDown, ChevronUp, Bell } from 'lucide-react-native';
 import DivvitLogo from '../../../components/DivvitLogo';
+import { supabase } from '../../../lib/supabase';
 
 // --- Types ---
 type User = {
@@ -173,10 +174,94 @@ export default function HistoryDetailScreen() {
     const { details, total_amount, created_at, host_id } = bill;
     const { items = [], users = [], userTotals = {}, paidStatus = [], tax = 0, tip = 0 } = details || {};
 
+    const [participants, setParticipants] = useState<any[]>([]);
+    const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!id) return;
+
+        const loadPartyDetails = async () => {
+            try {
+                // Fetch participants
+                const { data: partData, error: partError } = await supabase
+                    .from('bill_participants')
+                    .select('*')
+                    .eq('bill_id', id);
+
+                if (partError) throw partError;
+
+                // Fetch payment requests
+                const { data: payData, error: payError } = await supabase
+                    .from('payment_requests')
+                    .select('*')
+                    .eq('bill_id', id);
+
+                if (payError) throw payError;
+
+                setParticipants(partData || []);
+                setPaymentRequests(payData || []);
+            } catch (err) {
+                console.error('[HistoryDetail] Failed to load party details:', err);
+            }
+        };
+
+        loadPartyDetails();
+    }, [id]);
+
+    const isPartyMode = participants.length > 0;
+
+    const finalUsers: User[] = useMemo(() => {
+        if (isPartyMode) {
+            return participants.map(p => ({
+                id: p.id,
+                name: p.name,
+                color: p.color || '#6346cd',
+                initials: p.initials || p.name.slice(0, 2).toUpperCase(),
+            }));
+        }
+        return users;
+    }, [isPartyMode, participants, users]);
+
+    const finalUserTotals: Record<string, number> = useMemo(() => {
+        if (isPartyMode) {
+            const totals: Record<string, number> = {};
+            const guestTotal = paymentRequests.reduce((sum, pr) => sum + (pr.amount || 0), 0);
+            const hostAmount = Math.max(0, total_amount - guestTotal);
+
+            participants.forEach(p => {
+                if (p.user_id === host_id) {
+                    totals[p.id] = hostAmount;
+                } else {
+                    const req = paymentRequests.find(pr => pr.from_participant_id === p.id || (p.user_id && pr.from_user_id === p.user_id));
+                    totals[p.id] = req ? (req.amount || 0) : 0;
+                }
+            });
+            return totals;
+        }
+        return userTotals;
+    }, [isPartyMode, participants, paymentRequests, total_amount, host_id, userTotals]);
+
+    const finalSettledIds = useMemo(() => {
+        if (isPartyMode) {
+            const settled = new Set<string>();
+            participants.forEach(p => {
+                if (p.user_id === host_id) {
+                    settled.add(p.id);
+                } else {
+                    const req = paymentRequests.find(pr => pr.from_participant_id === p.id || (p.user_id && pr.from_user_id === p.user_id));
+                    if (req && req.status === 'confirmed') {
+                        settled.add(p.id);
+                    }
+                }
+            });
+            return settled;
+        }
+        return new Set([host_id, ...paidStatus]);
+    }, [isPartyMode, participants, paymentRequests, host_id, paidStatus]);
+
     // Settlement tracking
-    const settledIds = new Set([host_id, ...paidStatus]);
-    const settledPercent = users.length > 0 ? Math.round((settledIds.size / users.length) * 100) : 100;
-    const pendingUsers = users.filter(u => !settledIds.has(u.id));
+    const settledPercent = finalUsers.length > 0 ? Math.round((finalSettledIds.size / finalUsers.length) * 100) : 100;
+    const pendingUsers = finalUsers.filter(u => !finalSettledIds.has(u.id));
 
     const handleToggleItems = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -270,14 +355,16 @@ export default function HistoryDetailScreen() {
                             Who Paid What
                         </Text>
                         <Text style={{ fontSize: 10, fontWeight: '800', color: '#4b29b4', letterSpacing: 2, textTransform: 'uppercase' }}>
-                            {users.length} {users.length === 1 ? 'Person' : 'People'}
+                        {finalUsers.length} {finalUsers.length === 1 ? 'Person' : 'People'}
                         </Text>
                     </View>
 
-                    {users.map((user, index) => {
-                        const amount = userTotals[user.id] || 0;
-                        const isHost = user.id === host_id;
-                        const isSettled = settledIds.has(user.id);
+                    {finalUsers.map((user, index) => {
+                        const amount = finalUserTotals[user.id] || 0;
+                        const isHost = isPartyMode
+                            ? (participants.find(p => p.id === user.id)?.user_id === host_id)
+                            : (user.id === host_id);
+                        const isSettled = finalSettledIds.has(user.id);
                         return (
                             <PersonRow
                                 key={user.id}
