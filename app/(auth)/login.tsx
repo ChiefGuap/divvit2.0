@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, Alert,
     Animated, Platform, Linking, ActivityIndicator,
-    Dimensions, KeyboardAvoidingView, ScrollView,
+    Dimensions, KeyboardAvoidingView, ScrollView, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -19,21 +19,22 @@ import { getAuthCallbackUrl } from '../../utils/url';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// --- Google SVG ---
+// --- Google Logo ---
 const GoogleIcon = () => (
-    <Svg width={20} height={20} viewBox="0 0 24 24">
-        <Path d="M23.49 12.275c0-.846-.076-1.66-.217-2.44H12v4.613h6.443c-.278 1.498-1.122 2.768-2.392 3.618v3.01h3.875c2.266-2.086 3.564-5.158 3.564-8.799z" fill="#EA4335" />
-        <Path d="M12 24c3.24 0 5.957-1.075 7.942-2.914l-3.875-3.01c-1.074.72-2.448 1.144-4.067 1.144-3.127 0-5.772-2.112-6.717-4.956H1.423v3.116C3.404 21.89 7.427 24 12 24z" fill="#FBBC05" />
-        <Path d="M5.283 14.264c-.24-.72-.377-1.49-.377-2.264s.137-1.544.377-2.264V6.62H1.423C.516 8.412 0 10.15 0 12s.516 3.588 1.423 5.38l3.86-3.116z" fill="#34A853" />
-        <Path d="M12 4.773c1.764 0 3.348.606 4.593 1.794l3.444-3.444C17.952 1.191 15.235 0 12 0 7.427 0 3.404 2.11 1.423 5.38l3.86 3.116c.945-2.844 3.59-4.956 6.717-4.956z" fill="#4285F4" />
-    </Svg>
+    <Image 
+        source={require('../../assets/images/google.png')} 
+        style={{ width: 20, height: 20 }} 
+        resizeMode="contain" 
+    />
 );
 
-// --- Apple SVG ---
+// --- Apple Logo ---
 const AppleIcon = () => (
-    <Svg width={20} height={20} viewBox="0 0 24 24">
-        <Path d="M17.05 20.28c-.96 0-1.76-.36-2.4-.36-.6 0-1.4.36-2.2.36-2.73 0-5.27-1.67-6.32-3.49-2.14-3.7-.55-9.15 1.51-12.12 1.03-1.48 2.22-2.31 3.52-2.34 1.29-.03 2.11.41 2.87.41s1.77-.45 3.01-.45c1.11.02 2.13.41 2.86 1.05-2.7 1.6-2.27 5.23.44 6.34-.84 1.24-1.92 2.47-3.29 4.41-.6.86-1.18 1.77-1.76 2.64-.4.59-.79 1.17-1.15 1.55-.38.41-.71.54-1.09.54zM12.03 5.07c0-1.1.41-2.15 1.11-2.95.73-.83 1.76-1.38 2.84-1.43.08 1.1-.33 2.17-1.05 2.97-.73.81-1.78 1.41-2.9 1.41z" fill="#ffffff" />
-    </Svg>
+    <Image 
+        source={require('../../assets/images/apple.png')} 
+        style={{ width: 20, height: 20, tintColor: '#ffffff' }} 
+        resizeMode="contain" 
+    />
 );
 
 export default function Login() {
@@ -269,12 +270,12 @@ export default function Login() {
                             fontSize: 32, fontWeight: '800', color: '#111827',
                             textAlign: 'center', letterSpacing: -0.5, marginBottom: 8,
                         }}>
-                            Welcome back
+                            Welcome Back
                         </Text>
                         <Text style={{
                             fontSize: 16, color: '#484554', fontWeight: '500', textAlign: 'center',
                         }}>
-                            Log in to manage your shared expenses
+                            Log in and reward yourself
                         </Text>
                     </Animated.View>
 
