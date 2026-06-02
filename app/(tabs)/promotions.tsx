@@ -1,5 +1,23 @@
-// Promotions page — real deals fetched from Supabase + backend scraper
-// Deals refresh every 24 hours and are location-aware
+/**
+ * PROMOTIONS SCREEN
+ * 
+ * ENVIRONMENT BEHAVIOR:
+ * - Local development (__DEV__ = true):
+ *     Full promotions screen is visible and functional.
+ *     Use this for testing, editing, and development.
+ * 
+ * - TestFlight / Production builds (__DEV__ = false):
+ *     Shows a "Coming Soon" placeholder screen.
+ *     The Promos tab icon is greyed out in the nav bar.
+ * 
+ * To test the Coming Soon state locally:
+ *     Temporarily change: const IS_PRODUCTION = true;
+ *     Remember to revert before committing.
+ * 
+ * To enable promotions in production:
+ *     Change: const IS_PRODUCTION = false;
+ *     Or remove the IS_PRODUCTION check entirely.
+ */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
@@ -554,11 +572,108 @@ const MOCK_DEALS: Deal[] = [
   },
 ];
 
+// ─── Coming Soon State ───
+const PromotionsComingSoon = () => {
+  return (
+    <View style={comingSoonStyles.container}>
+      {/* Same header as normal screen */}
+      <TabHeader points={0} />
+      
+      {/* Coming Soon content */}
+      <View style={comingSoonStyles.content}>
+        {/* Greyed out background icon */}
+        <View style={comingSoonStyles.iconContainer}>
+          <Text style={comingSoonStyles.icon}>🏷️</Text>
+        </View>
+        
+        <Text style={comingSoonStyles.title}>
+          Coming Soon
+        </Text>
+        
+        <Text style={comingSoonStyles.subtitle}>
+          Exclusive deals and promotions{'\n'}
+          are on their way to Divvit.
+        </Text>
+        
+        <View style={comingSoonStyles.badge}>
+          <Text style={comingSoonStyles.badgeText}>
+            🚀  Launching Soon
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const comingSoonStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f9f9ff',
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+    paddingBottom: 100,
+  },
+  iconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#f1f3ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    opacity: 0.5,
+  },
+  icon: {
+    fontSize: 44,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#9ca3af',
+    fontFamily: 'Outfit',
+    letterSpacing: -0.5,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#9ca3af',
+    fontFamily: 'Outfit',
+    fontWeight: '400',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 28,
+  },
+  badge: {
+    backgroundColor: '#f1f3ff',
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  badgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#9ca3af',
+    fontFamily: 'Outfit',
+    letterSpacing: 0.5,
+  },
+});
+
 // ─── Main Screen ───
 export default function PromotionsScreen() {
   const { user } = useAuth();
   const rewards = useRewards();
   const userPoints = rewards.points ?? 0;
+
+  const IS_PRODUCTION = !__DEV__;
+
+  if (IS_PRODUCTION) {
+    return <PromotionsComingSoon />;
+  }
 
   const [activeTab, setActiveTab] = useState<'swipe' | 'saved'>('swipe');
   const [savedDeals, setSavedDeals] = useState<Deal[]>([]);
