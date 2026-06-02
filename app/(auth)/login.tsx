@@ -275,7 +275,7 @@ export default function Login() {
                         <Text style={{
                             fontSize: 16, color: '#484554', fontWeight: '500', textAlign: 'center',
                         }}>
-                            Log in and reward yourself
+                            Log in and reward yourself!
                         </Text>
                     </Animated.View>
 
