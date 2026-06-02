@@ -68,6 +68,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                     enableGooglePay: false,
                 },
             ],
+            [
+                'expo-notifications',
+                {
+                    icon: './assets/images/icon.png',
+                    color: '#6346cd',
+                },
+            ],
             '@react-native-community/datetimepicker',
         ],
         experiments: {

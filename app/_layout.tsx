@@ -4,11 +4,65 @@ import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_700Bold } from '@
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { RewardsProvider } from "../context/RewardsContext";
 import { useEffect, useCallback, useRef } from "react";
-import { View, ActivityIndicator, Linking, Alert } from "react-native";
+import { View, ActivityIndicator, Linking, Alert, Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { getInitials, getNextColor } from "../types";
 import { supabase } from "../lib/supabase";
 import { StripeProvider } from '@stripe/stripe-react-native';
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import Constants from 'expo-constants';
+
+// Configure notifications handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+// Helper function to register for push notifications
+async function registerForPushNotificationsAsync(): Promise<string | null> {
+  let token = null;
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#6346cd',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.log('Failed to get push token for push notification!');
+      return null;
+    }
+    try {
+      const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? 'e29d46bc-e0b1-4c04-ad7e-a86c2936337f';
+      token = (await Notifications.getExpoPushTokenAsync({
+        projectId,
+      })).data;
+      console.log('Expo Push Token registered:', token);
+    } catch (e) {
+      console.error('Error fetching Expo Push Token:', e);
+    }
+  } else {
+    console.log('Must use physical device for Push Notifications');
+  }
+
+  return token;
+}
 
 // Loading screen component
 function LoadingScreen() {
@@ -201,10 +255,29 @@ function DeepLinkHandler() {
     // Listen for incoming links while app is open
     const subscription = Linking.addEventListener('url', handleUrl);
 
+    // Listen for notification responses (user tapping on a notification)
+    const notificationResponseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      console.log('Notification tapped. Payload data:', data);
+      
+      const targetUrl = data?.url;
+      if (targetUrl) {
+        console.log('Routing to deep link from notification:', targetUrl);
+        router.push(targetUrl as any);
+      }
+    });
+
+    // Listen for incoming notifications when app is in the foreground
+    const notificationReceivedSubscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Foreground notification received:', notification);
+    });
+
     return () => {
       subscription.remove();
+      notificationResponseSubscription.remove();
+      notificationReceivedSubscription.remove();
     };
-  }, [handleDeepLink]);
+  }, [handleDeepLink, router]);
 
   return null;
 }
@@ -262,7 +335,31 @@ function NavigationController() {
 
 // Protected layout - only renders content after auth check
 function ProtectedLayout() {
-  const { isLoading } = useAuth();
+  const { isLoading, user } = useAuth();
+
+  // Register push token when user is logged in
+  useEffect(() => {
+    if (user?.id) {
+      registerForPushNotificationsAsync().then(async (token) => {
+        if (token) {
+          console.log('Saving push token to profile:', token);
+          try {
+            const { error } = await supabase
+              .from('profiles')
+              .update({ expo_push_token: token })
+              .eq('id', user.id);
+            if (error) {
+              console.error('Error saving push token to Supabase:', error);
+            } else {
+              console.log('Push token saved successfully to profile.');
+            }
+          } catch (e) {
+            console.error('Exception saving push token:', e);
+          }
+        }
+      });
+    }
+  }, [user?.id]);
 
   // CRITICAL: Block rendering until auth check is complete
   // This prevents flash of wrong screens

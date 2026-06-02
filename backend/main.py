@@ -12,10 +12,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.api.endpoints import receipts
 from app.api.endpoints import deals
 from app.services.scraper import scrape_all_deals, get_cache_status
+from app.services.nudge_service import process_nudges
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +51,20 @@ async def run_periodic_scraper():
 async def lifespan(app: FastAPI):
     # Startup
     scraper_task = asyncio.create_task(run_periodic_scraper())
+    
+    # Initialize background scheduler for payment nudges
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(process_nudges, "interval", minutes=30, id="nudge_processor")
+    scheduler.start()
+    app.state.scheduler = scheduler
+    logger.info("Background payment nudge scheduler started.")
+    
     yield
+    
     # Shutdown
+    scheduler.shutdown()
+    logger.info("Background payment nudge scheduler stopped.")
+    
     scraper_task.cancel()
     try:
         await scraper_task
@@ -116,3 +130,34 @@ async def health_check():
         "status": "ok",
         "gemini_configured": bool(settings.gemini_api_key),
     }
+
+
+@app.post("/api/v1/nudges/process")
+async def trigger_nudge_processing():
+    """Manually trigger the payment nudge processor job."""
+    try:
+        result = await process_nudges()
+        return {"status": "success", "result": result}
+    except Exception as e:
+        logger.error(f"Error manually processing nudges: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/v1/nudges/status")
+async def get_nudge_scheduler_status():
+    """Get the status of the background payment nudge scheduler."""
+    try:
+        scheduler = app.state.scheduler
+        jobs = []
+        for job in scheduler.get_jobs():
+            jobs.append({
+                "id": job.id,
+                "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
+            })
+        return {
+            "scheduler_running": scheduler.running,
+            "jobs": jobs
+        }
+    except Exception as e:
+        logger.error(f"Error getting nudge scheduler status: {e}")
+        return {"status": "error", "message": str(e)}
