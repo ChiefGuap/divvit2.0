@@ -575,7 +575,7 @@ const MOCK_DEALS: Deal[] = [
 // ─── Coming Soon State ───
 const PromotionsComingSoon = () => {
   return (
-    <View style={comingSoonStyles.container}>
+    <SafeAreaView style={comingSoonStyles.container} edges={['top']}>
       {/* Same header as normal screen */}
       <TabHeader points={0} />
       
@@ -601,7 +601,7 @@ const PromotionsComingSoon = () => {
           </Text>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
