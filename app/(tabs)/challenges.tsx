@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import TabHeader from '@/components/TabHeader';
 
 export default function ChallengesScreen() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <TabHeader points={0} />
       
       <View style={styles.content}>
@@ -23,7 +24,7 @@ export default function ChallengesScreen() {
           <Text style={styles.badgeText}>🚀  Coming Soon</Text>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
