@@ -2,11 +2,14 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TabHeader from '@/components/TabHeader';
+import { useRewards } from '../../context/RewardsContext';
 
 export default function ChallengesScreen() {
+  const { points } = useRewards();
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <TabHeader points={0} />
+      <TabHeader points={points ?? 0} />
       
       <View style={styles.content}>
         <View style={styles.iconContainer}>
