@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Home, Star, Tag, Clock, User } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 
 export default function TabLayout() {
   return (
@@ -54,6 +55,26 @@ export default function TabLayout() {
               color={color}
               strokeWidth={focused ? 2.5 : 2}
             />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="challenges"
+        options={{
+          title: 'Challenges',
+          tabBarIcon: ({ color, focused }) => (
+            <Svg
+              width={24}
+              height={24}
+              viewBox="0 0 24 24"
+              fill={focused ? color : "none"}
+              stroke={color}
+              strokeWidth={focused ? 2.5 : 2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <Path d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </Svg>
           ),
         }}
       />
@@ -151,14 +172,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, focused }) => (
-            <User
-              size={24}
-              color={color}
-              strokeWidth={focused ? 2.5 : 2}
-            />
-          ),
+          href: null,
         }}
       />
     </Tabs>
