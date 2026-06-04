@@ -167,6 +167,81 @@ export async function requestCashApp(
 }
 
 /**
+ * Opens Venmo with a charge (request) deep link WITHOUT a recipient.
+ * The amount and note are pre-filled so the host can search for
+ * the participant manually in Venmo.
+ */
+export async function requestVenmoNoRecipient(
+    amount: number,
+    note: string
+): Promise<void> {
+    const encodedNote = encodeURIComponent(note);
+    const formattedAmount = amount.toFixed(2);
+
+    // Open Venmo with txn=charge but no recipients — Venmo will prompt the user to pick one
+    const deepLink = `venmo://paycharge?txn=charge&amount=${formattedAmount}&note=${encodedNote}`;
+    const storeLink = Platform.OS === 'ios' ? VENMO_APP_STORE : VENMO_PLAY_STORE;
+
+    try {
+        const canOpen = await Linking.canOpenURL(deepLink);
+        if (canOpen) {
+            await Linking.openURL(deepLink);
+        } else {
+            Alert.alert(
+                'Venmo App Not Found',
+                `Install the Venmo app to request $${formattedAmount}. You can search for the person in Venmo.`,
+                [
+                    { text: 'Install Venmo', onPress: () => Linking.openURL(storeLink) },
+                    { text: 'Cancel', style: 'cancel' },
+                ]
+            );
+        }
+    } catch (error) {
+        console.error('Venmo request (no recipient) error:', error);
+        Alert.alert(
+            'Cannot Open Venmo',
+            `Please open Venmo and request $${formattedAmount}.`,
+            [
+                { text: 'Install Venmo', onPress: () => Linking.openURL(storeLink) },
+                { text: 'OK' },
+            ]
+        );
+    }
+}
+
+/**
+ * Opens Cash App WITHOUT a recipient pre-filled.
+ * The host can search for the participant manually.
+ */
+export async function requestCashAppNoRecipient(
+    amount: number
+): Promise<void> {
+    const formattedAmount = amount.toFixed(2);
+
+    const deepLink = `cashme://launch`;
+    const webFallback = `https://cash.app`;
+
+    try {
+        const canOpen = await Linking.canOpenURL(deepLink);
+        if (canOpen) {
+            await Linking.openURL(deepLink);
+        } else {
+            await Linking.openURL(webFallback);
+        }
+    } catch (error) {
+        console.error('CashApp request (no recipient) error:', error);
+        Alert.alert(
+            'Cannot Open Cash App',
+            `Please open Cash App and request $${formattedAmount}.`,
+            [
+                { text: 'Open Cash App', onPress: () => Linking.openURL(webFallback) },
+                { text: 'OK' },
+            ]
+        );
+    }
+}
+
+/**
  * Opens Apple Cash (via iMessage) with a pre-filled amount and recipient.
  */
 export async function openAppleCash(

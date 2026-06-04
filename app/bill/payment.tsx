@@ -31,7 +31,9 @@ import {
     openAppleCash, 
     openZelle, 
     requestVenmo, 
-    requestCashApp 
+    requestCashApp,
+    requestVenmoNoRecipient,
+    requestCashAppNoRecipient 
 } from '../../utils/payments';
 import { supabase } from '../../lib/supabase';
 
@@ -367,23 +369,29 @@ export default function PaymentScreen() {
         const alertOptions: Array<{ text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }> = [];
 
         alertOptions.push({
-            text: 'Request via Venmo',
+            text: profile?.venmo_handle
+                ? 'Request via Venmo'
+                : 'Request via Venmo (search manually)',
             onPress: () => {
                 if (profile?.venmo_handle) {
                     requestVenmo(profile.venmo_handle, amount, 'Divvit: Bill split');
                 } else {
-                    Alert.alert('No Venmo', `Ask ${participant.name} for their Venmo username first.`);
+                    // No handle on file — open Venmo with amount pre-filled, host searches manually
+                    requestVenmoNoRecipient(amount, `Divvit: Bill split - ${participant.name}`);
                 }
             },
         });
 
         alertOptions.push({
-            text: 'Request via Cash App',
+            text: profile?.cashapp_handle
+                ? 'Request via Cash App'
+                : 'Request via Cash App (search manually)',
             onPress: () => {
                 if (profile?.cashapp_handle) {
                     requestCashApp(profile.cashapp_handle, amount);
                 } else {
-                    Alert.alert('No Cash App', `Ask ${participant.name} for their Cash App $cashtag first.`);
+                    // No handle on file — open Cash App, host searches manually
+                    requestCashAppNoRecipient(amount);
                 }
             },
         });
