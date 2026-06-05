@@ -17,9 +17,44 @@ import {
   mockGroupChallenges,
 } from '../../data/mockChallenges';
 
+const ChallengesComingSoon = () => {
+  return (
+    <SafeAreaView style={comingSoonStyles.container} edges={['top']}>
+      <TabHeader points={0} />
+      
+      <View style={comingSoonStyles.content}>
+        <View style={comingSoonStyles.iconContainer}>
+          <Text style={comingSoonStyles.icon}>🏆</Text>
+        </View>
+        
+        <Text style={comingSoonStyles.title}>
+          Coming Soon
+        </Text>
+        
+        <Text style={comingSoonStyles.subtitle}>
+          Fun challenges and bonus rewards{'\n'}
+          are on their way to Divvit.
+        </Text>
+        
+        <View style={comingSoonStyles.badge}>
+          <Text style={comingSoonStyles.badgeText}>
+            🚀  Launching Soon
+          </Text>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+};
+
 export default function ChallengesScreen() {
   const { points, refresh } = useRewards();
   const { user } = useAuth();
+  
+  const IS_PRODUCTION = !__DEV__;
+
+  if (IS_PRODUCTION) {
+    return <ChallengesComingSoon />;
+  }
   
   // Refresh points when screen comes into focus
   useFocusEffect(
@@ -142,5 +177,63 @@ const styles = StyleSheet.create({
   referralContainer: {
     paddingHorizontal: 24,
     marginTop: 12,
+  },
+});
+
+const comingSoonStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fcf4ff',
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+    paddingBottom: 100,
+  },
+  iconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#f1e3ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    opacity: 0.5,
+  },
+  icon: {
+    fontSize: 44,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#806f9a',
+    fontFamily: 'Outfit_800ExtraBold',
+    letterSpacing: -0.5,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#806f9a',
+    fontFamily: 'Outfit_500Medium',
+    fontWeight: '400',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 28,
+  },
+  badge: {
+    backgroundColor: '#f1e3ff',
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  badgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#806f9a',
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 0.5,
   },
 });
