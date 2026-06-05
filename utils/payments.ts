@@ -394,32 +394,29 @@ export async function requestVenmoNoRecipient(
     const deepLink = `venmo://paycharge?txn=charge&amount=${formattedAmount}&note=${encodedNote}`;
     const webFallback = `https://venmo.com`;
 
-    try {
-        // Attempt to open the Venmo app directly
-        await Linking.openURL(deepLink);
-        Alert.alert(
-            'Amount Copied',
-            `$${formattedAmount} has been copied to your clipboard. Paste this amount to request from the participant in Venmo.`,
-            [{ text: 'OK' }]
-        );
-    } catch (error) {
-        console.warn('Could not open Venmo app, opening website fallback:', error);
-        try {
-            await Linking.openURL(webFallback);
-            Alert.alert(
-                'Amount Copied',
-                `$${formattedAmount} has been copied to your clipboard. Paste this amount on the Venmo website.`,
-                [{ text: 'OK' }]
-            );
-        } catch (webError) {
-            console.error('Could not open Venmo website fallback:', webError);
-            Alert.alert(
-                'Amount Copied',
-                `$${formattedAmount} has been copied to your clipboard. Please open Venmo and request this amount manually.`,
-                [{ text: 'OK' }]
-            );
-        }
-    }
+    // Prompt the user
+    Alert.alert(
+        'Amount Copied',
+        `$${formattedAmount} has been copied to your clipboard.\n\nWould you like to open Venmo to search for the participant and request the payment?`,
+        [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Open Venmo',
+                onPress: async () => {
+                    try {
+                        await Linking.openURL(deepLink);
+                    } catch (error) {
+                        console.warn('Could not open Venmo app, opening website fallback:', error);
+                        try {
+                            await Linking.openURL(webFallback);
+                        } catch (webError) {
+                            console.error('Could not open Venmo website fallback:', webError);
+                        }
+                    }
+                }
+            }
+        ]
+    );
 }
 
 export async function requestCashAppNoRecipient(
@@ -433,30 +430,27 @@ export async function requestCashAppNoRecipient(
     const deepLink = `cashme://launch`;
     const webFallback = `https://cash.app`;
 
-    try {
-        // Attempt to open Cash App directly
-        await Linking.openURL(deepLink);
-        Alert.alert(
-            'Amount Copied',
-            `$${formattedAmount} has been copied to your clipboard. Paste this amount to request from the participant in Cash App.`,
-            [{ text: 'OK' }]
-        );
-    } catch (error) {
-        console.warn('Could not open Cash App, opening website fallback:', error);
-        try {
-            await Linking.openURL(webFallback);
-            Alert.alert(
-                'Amount Copied',
-                `$${formattedAmount} has been copied to your clipboard. Paste this amount on the Cash App website.`,
-                [{ text: 'OK' }]
-            );
-        } catch (webError) {
-            console.error('Could not open Cash App website fallback:', webError);
-            Alert.alert(
-                'Amount Copied',
-                `$${formattedAmount} has been copied to your clipboard. Please open Cash App and request this amount manually.`,
-                [{ text: 'OK' }]
-            );
-        }
-    }
+    // Prompt the user
+    Alert.alert(
+        'Amount Copied',
+        `$${formattedAmount} has been copied to your clipboard.\n\nWould you like to open Cash App to search for the participant and request the payment?`,
+        [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Open Cash App',
+                onPress: async () => {
+                    try {
+                        await Linking.openURL(deepLink);
+                    } catch (error) {
+                        console.warn('Could not open Cash App app, opening website fallback:', error);
+                        try {
+                            await Linking.openURL(webFallback);
+                        } catch (webError) {
+                            console.error('Could not open Cash App website fallback:', webError);
+                        }
+                    }
+                }
+            }
+        ]
+    );
 }
