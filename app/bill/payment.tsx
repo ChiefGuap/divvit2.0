@@ -33,7 +33,9 @@ import {
     openAppleCash, 
     openZelle, 
     requestVenmo, 
-    requestCashApp 
+    requestCashApp,
+    requestVenmoNoRecipient,
+    requestCashAppNoRecipient
 } from '../../utils/payments';
 import { supabase } from '../../lib/supabase';
 import { useBillFlowSync } from '../../hooks/useBillFlowSync';
@@ -473,31 +475,34 @@ export default function PaymentScreen() {
         const alertOptions: Array<{ text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }> = [];
 
         alertOptions.push({
-            text: '💙 Request via Venmo',
+            text: profile?.venmo_handle
+                ? '💙 Request via Venmo'
+                : '💙 Request via Venmo (search manually)',
             onPress: async () => {
-                const venmo = profile?.venmo_handle;
-                if (!venmo) {
-                    Alert.alert(
-                        'No Venmo',
-                        `${participant.name} hasn't added their Venmo username yet.`
+                if (profile?.venmo_handle) {
+                    await requestVenmo(
+                        profile.venmo_handle,
+                        amount,
+                        bill?.restaurant_name || 'Bill Split'
                     );
-                    return;
+                } else {
+                    await requestVenmoNoRecipient(
+                        amount,
+                        `Divvit: Bill split - ${participant.name}`
+                    );
                 }
-                await requestVenmo(
-                    venmo,
-                    amount,
-                    bill?.restaurant_name || 'Bill Split'
-                );
             },
         });
 
         alertOptions.push({
-            text: 'Request via Cash App',
-            onPress: () => {
+            text: profile?.cashapp_handle
+                ? 'Request via Cash App'
+                : 'Request via Cash App (search manually)',
+            onPress: async () => {
                 if (profile?.cashapp_handle) {
-                    requestCashApp(profile.cashapp_handle, amount);
+                    await requestCashApp(profile.cashapp_handle, amount);
                 } else {
-                    Alert.alert('No Cash App', `Ask ${participant.name} for their Cash App $cashtag first.`);
+                    await requestCashAppNoRecipient(amount);
                 }
             },
         });

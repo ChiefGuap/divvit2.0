@@ -1,5 +1,8 @@
 import { Linking, Alert, Platform, Clipboard } from 'react-native';
 
+const VENMO_APP_STORE = 'https://apps.apple.com/app/venmo/id351727428';
+const VENMO_PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.venmo';
+
 /**
  * PAYMENT DEEP LINKS
  * 
@@ -377,3 +380,68 @@ export const openAppStore = async (
   
   await Linking.openURL(url);
 };
+
+export async function requestVenmoNoRecipient(
+    amount: number,
+    note: string
+): Promise<void> {
+    const encodedNote = encodeURIComponent(note);
+    const formattedAmount = amount.toFixed(2);
+
+    const deepLink = `venmo://paycharge?txn=charge&amount=${formattedAmount}&note=${encodedNote}`;
+    const storeLink = Platform.OS === 'ios' ? VENMO_APP_STORE : VENMO_PLAY_STORE;
+
+    try {
+        const canOpen = await Linking.canOpenURL(deepLink);
+        if (canOpen) {
+            await Linking.openURL(deepLink);
+        } else {
+            Alert.alert(
+                'Venmo App Not Found',
+                `Install the Venmo app to request $${formattedAmount}. You can search for the person in Venmo.`,
+                [
+                    { text: 'Install Venmo', onPress: () => Linking.openURL(storeLink) },
+                    { text: 'Cancel', style: 'cancel' },
+                ]
+            );
+        }
+    } catch (error) {
+        console.error('Venmo request (no recipient) error:', error);
+        Alert.alert(
+            'Cannot Open Venmo',
+            `Please open Venmo and request $${formattedAmount}.`,
+            [
+                { text: 'Install Venmo', onPress: () => Linking.openURL(storeLink) },
+                { text: 'OK' },
+            ]
+        );
+    }
+}
+
+export async function requestCashAppNoRecipient(
+    amount: number
+): Promise<void> {
+    const formattedAmount = amount.toFixed(2);
+
+    const deepLink = `cashme://launch`;
+    const webFallback = `https://cash.app`;
+
+    try {
+        const canOpen = await Linking.canOpenURL(deepLink);
+        if (canOpen) {
+            await Linking.openURL(deepLink);
+        } else {
+            await Linking.openURL(webFallback);
+        }
+    } catch (error) {
+        console.error('CashApp request (no recipient) error:', error);
+        Alert.alert(
+            'Cannot Open Cash App',
+            `Please open Cash App and request $${formattedAmount}.`,
+            [
+                { text: 'Open Cash App', onPress: () => Linking.openURL(webFallback) },
+                { text: 'OK' },
+            ]
+        );
+    }
+}
