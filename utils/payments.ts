@@ -388,33 +388,37 @@ export async function requestVenmoNoRecipient(
     const encodedNote = encodeURIComponent(note);
     const formattedAmount = amount.toFixed(2);
 
+    // Copy amount to clipboard
+    Clipboard.setString(formattedAmount);
+
     const deepLink = `venmo://paycharge?txn=charge&amount=${formattedAmount}&note=${encodedNote}`;
-    const storeLink = Platform.OS === 'ios' ? VENMO_APP_STORE : VENMO_PLAY_STORE;
+    const webFallback = `https://venmo.com`;
 
     try {
-        const canOpen = await Linking.canOpenURL(deepLink);
-        if (canOpen) {
-            await Linking.openURL(deepLink);
-        } else {
+        // Attempt to open the Venmo app directly
+        await Linking.openURL(deepLink);
+        Alert.alert(
+            'Amount Copied',
+            `$${formattedAmount} has been copied to your clipboard. Paste this amount to request from the participant in Venmo.`,
+            [{ text: 'OK' }]
+        );
+    } catch (error) {
+        console.warn('Could not open Venmo app, opening website fallback:', error);
+        try {
+            await Linking.openURL(webFallback);
             Alert.alert(
-                'Venmo App Not Found',
-                `Install the Venmo app to request $${formattedAmount}. You can search for the person in Venmo.`,
-                [
-                    { text: 'Install Venmo', onPress: () => Linking.openURL(storeLink) },
-                    { text: 'Cancel', style: 'cancel' },
-                ]
+                'Amount Copied',
+                `$${formattedAmount} has been copied to your clipboard. Paste this amount on the Venmo website.`,
+                [{ text: 'OK' }]
+            );
+        } catch (webError) {
+            console.error('Could not open Venmo website fallback:', webError);
+            Alert.alert(
+                'Amount Copied',
+                `$${formattedAmount} has been copied to your clipboard. Please open Venmo and request this amount manually.`,
+                [{ text: 'OK' }]
             );
         }
-    } catch (error) {
-        console.error('Venmo request (no recipient) error:', error);
-        Alert.alert(
-            'Cannot Open Venmo',
-            `Please open Venmo and request $${formattedAmount}.`,
-            [
-                { text: 'Install Venmo', onPress: () => Linking.openURL(storeLink) },
-                { text: 'OK' },
-            ]
-        );
     }
 }
 
@@ -423,25 +427,36 @@ export async function requestCashAppNoRecipient(
 ): Promise<void> {
     const formattedAmount = amount.toFixed(2);
 
+    // Copy amount to clipboard
+    Clipboard.setString(formattedAmount);
+
     const deepLink = `cashme://launch`;
     const webFallback = `https://cash.app`;
 
     try {
-        const canOpen = await Linking.canOpenURL(deepLink);
-        if (canOpen) {
-            await Linking.openURL(deepLink);
-        } else {
-            await Linking.openURL(webFallback);
-        }
-    } catch (error) {
-        console.error('CashApp request (no recipient) error:', error);
+        // Attempt to open Cash App directly
+        await Linking.openURL(deepLink);
         Alert.alert(
-            'Cannot Open Cash App',
-            `Please open Cash App and request $${formattedAmount}.`,
-            [
-                { text: 'Open Cash App', onPress: () => Linking.openURL(webFallback) },
-                { text: 'OK' },
-            ]
+            'Amount Copied',
+            `$${formattedAmount} has been copied to your clipboard. Paste this amount to request from the participant in Cash App.`,
+            [{ text: 'OK' }]
         );
+    } catch (error) {
+        console.warn('Could not open Cash App, opening website fallback:', error);
+        try {
+            await Linking.openURL(webFallback);
+            Alert.alert(
+                'Amount Copied',
+                `$${formattedAmount} has been copied to your clipboard. Paste this amount on the Cash App website.`,
+                [{ text: 'OK' }]
+            );
+        } catch (webError) {
+            console.error('Could not open Cash App website fallback:', webError);
+            Alert.alert(
+                'Amount Copied',
+                `$${formattedAmount} has been copied to your clipboard. Please open Cash App and request this amount manually.`,
+                [{ text: 'OK' }]
+            );
+        }
     }
 }
