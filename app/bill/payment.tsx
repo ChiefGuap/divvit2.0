@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     View, Text, TouchableOpacity, ScrollView, Alert,
     ActivityIndicator, Platform, Dimensions, Linking,
+    BackHandler,
 } from 'react-native';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { useLocalSearchParams, Stack, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
@@ -35,6 +36,7 @@ import {
     requestCashApp 
 } from '../../utils/payments';
 import { supabase } from '../../lib/supabase';
+import { useBillFlowSync } from '../../hooks/useBillFlowSync';
 
 // ─── DESIGN TOKENS ─────────────────────────────────────────────────────────
 const COLORS = {
@@ -61,7 +63,8 @@ type ProfileMap = Record<string, { venmo_handle: string | null; cashapp_handle: 
 export default function PaymentScreen() {
     const router = useRouter();
     const { user } = useAuth();
-    const { billId } = useLocalSearchParams<{ billId: string }>();
+    const { billId, fromParty } = useLocalSearchParams<{ billId: string; fromParty: string }>();
+    const isFromParty = fromParty === 'true';
     const { isPlatformPaySupported, createPlatformPayPaymentMethod } = usePlatformPay();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -79,6 +82,23 @@ export default function PaymentScreen() {
 
     const hostId = bill?.host_id;
     const isHost = user?.id === hostId;
+
+    useBillFlowSync(billId, 'completed', isHost);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            const onBackPress = () => {
+                if (isFromParty && !isHost) {
+                    return true;
+                }
+                handleBackPress();
+                return true;
+            };
+
+            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+            return () => subscription.remove();
+        }, [isFromParty, isHost, billId])
+    );
 
     const myParticipant = useMemo(
         () => participants.find(p => p.user_id === user?.id),
@@ -211,13 +231,7 @@ export default function PaymentScreen() {
             });
         });
 
-        const statusChannel = subscribeToBillStatus(billId, (status) => {
-            if (status === 'settled') {
-                setBill((prev: any) => prev ? { ...prev, status: 'settled' } : prev);
-            }
-        });
-
-        return () => unsubscribeAll([prChannel, statusChannel]);
+        return () => unsubscribeAll([prChannel]);
     }, [billId]);
 
     // ─── GUEST PAYMENT HANDLERS ────────────────────────────────────────────────
@@ -415,8 +429,26 @@ export default function PaymentScreen() {
         );
     };
 
-    const handleBackPress = () => {
-        if (isHost) {
+    const handleBackPress = async () => {
+        if (isFromParty && isHost) {
+            Alert.alert(
+                'Return to tip selection?',
+                'Are you sure you want to go back? Guests will be returned to the tip selection screen.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Go Back',
+                        onPress: async () => {
+                            try {
+                                await updateBillStatus(billId!, 'tip_selection');
+                            } catch (err) {
+                                console.error('Failed to return to tip selection:', err);
+                            }
+                        }
+                    }
+                ]
+            );
+        } else if (isHost) {
             Alert.alert(
                 'Leave Payment Screen?',
                 'You can check payment status later in your bill history.',
@@ -514,7 +546,7 @@ export default function PaymentScreen() {
     if (isLoading) {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' }} edges={['top']}>
-                <Stack.Screen options={{ headerShown: false }} />
+                <Stack.Screen options={{ headerShown: false, gestureEnabled: !isFromParty || isHost }} />
                 <ActivityIndicator size="large" color={COLORS.primary} />
                 <Text style={{ color: COLORS.onSurfaceVariant, marginTop: 16, fontWeight: '500', fontFamily: 'Outfit' }}>Loading payment...</Text>
             </SafeAreaView>
@@ -587,24 +619,28 @@ export default function PaymentScreen() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface }} edges={['top']}>
-            <Stack.Screen options={{ headerShown: false }} />
+            <Stack.Screen options={{ headerShown: false, gestureEnabled: !isFromParty || isHost }} />
 
             {/* Header */}
             <View style={{
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                 paddingHorizontal: 20, height: 56,
             }}>
-                <TouchableOpacity
-                    onPress={handleBackPress}
-                    activeOpacity={0.7}
-                    style={{
-                        width: 40, height: 40, borderRadius: 20,
-                        alignItems: 'center', justifyContent: 'center',
-                        backgroundColor: COLORS.surfaceContainerHigh,
-                    }}
-                >
-                    <ArrowLeft size={20} color={COLORS.primary} />
-                </TouchableOpacity>
+                {(!isFromParty || isHost) ? (
+                    <TouchableOpacity
+                        onPress={handleBackPress}
+                        activeOpacity={0.7}
+                        style={{
+                            width: 40, height: 40, borderRadius: 20,
+                            alignItems: 'center', justifyContent: 'center',
+                            backgroundColor: COLORS.surfaceContainerHigh,
+                        }}
+                    >
+                        <ArrowLeft size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                ) : (
+                    <View style={{ width: 40 }} />
+                )}
                 <DivvitLogo />
                 <View style={{ width: 40 }} />
             </View>

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Keyboard, Alert, ActivityIndicator, StyleSheet } from 'react-native';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { View, Text, TouchableOpacity, ScrollView, Keyboard, Alert, ActivityIndicator, StyleSheet, BackHandler } from 'react-native';
+import { useLocalSearchParams, Stack, useRouter, useFocusEffect } from 'expo-router';
+import { useBillFlowSync } from '../../hooks/useBillFlowSync';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ArrowLeft, Users } from 'lucide-react-native';
@@ -77,6 +78,47 @@ export default function TipScreen() {
     const [isPartyLoading, setIsPartyLoading] = useState(isFromParty);
     const isHost = user?.id === hostId;
 
+    useBillFlowSync(billId, 'tip_selection', isHost);
+
+    const handleBackPress = async () => {
+        if (isFromParty && isHost) {
+            Alert.alert(
+                'Return to splitting?',
+                'Are you sure you want to go back? Guests will be returned to the splitting screen.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Go Back',
+                        onPress: async () => {
+                            try {
+                                await updateBillStatus(billId!, 'active');
+                            } catch (err) {
+                                console.error('Failed to return to splitting:', err);
+                            }
+                        }
+                    }
+                ]
+            );
+        } else {
+            router.back();
+        }
+    };
+
+    useFocusEffect(
+        React.useCallback(() => {
+            const onBackPress = () => {
+                if (isFromParty && !isHost) {
+                    return true;
+                }
+                handleBackPress();
+                return true;
+            };
+
+            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+            return () => subscription.remove();
+        }, [isFromParty, isHost, billId])
+    );
+
     // Fetch bill data from Supabase for party mode
     useEffect(() => {
         if (!isFromParty || !billId) return;
@@ -101,17 +143,6 @@ export default function TipScreen() {
         };
         loadPartyData();
 
-        // Guests: subscribe to status changes (host moves to payment)
-        const statusChannel = subscribeToBillStatus(billId, (newStatus) => {
-            if (newStatus === 'completed') {
-                router.replace({
-                    pathname: '/bill/payment' as any,
-                    params: { billId },
-                });
-            }
-        });
-
-        return () => unsubscribeAll([statusChannel]);
     }, [isFromParty, billId]);
 
     // Parse incoming data (standalone mode — from route params)
@@ -390,7 +421,7 @@ export default function TipScreen() {
                 // Host navigates to payment screen
                 router.push({
                     pathname: '/bill/payment' as any,
-                    params: { billId },
+                    params: { billId, fromParty: 'true' },
                 });
             } catch (err) {
                 console.error('TipScreen: Error finalizing bill:', err);
@@ -502,16 +533,20 @@ export default function TipScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
-            <Stack.Screen options={{ headerShown: false }} />
+            <Stack.Screen options={{ headerShown: false, gestureEnabled: !isFromParty || isHost }} />
 
             {/* Header */}
             <View className="flex-row items-center justify-between px-6 h-16 w-full z-50">
-                <TouchableOpacity 
-                    onPress={() => router.back()}
-                    className="w-10 h-10 items-center justify-center rounded-full hover:bg-primary-container/10"
-                >
-                    <ArrowLeft color="#6346cd" size={24} />
-                </TouchableOpacity>
+                {(!isFromParty || isHost) ? (
+                    <TouchableOpacity 
+                        onPress={handleBackPress}
+                        className="w-10 h-10 items-center justify-center rounded-full hover:bg-primary-container/10"
+                    >
+                        <ArrowLeft color="#6346cd" size={24} />
+                    </TouchableOpacity>
+                ) : (
+                    <View className="w-10" />
+                )}
                 <DivvitLogo />
                 
                 {/* Current User Avatar Placeholder */}

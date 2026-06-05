@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Alert, Keyboard, Modal } from 'react-native';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { View, Text, TouchableOpacity, TextInput, Alert, Keyboard, Modal, ScrollView, BackHandler } from 'react-native';
+import { useLocalSearchParams, Stack, useRouter, useFocusEffect } from 'expo-router';
+import { useBillFlowSync } from '../../hooks/useBillFlowSync';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -128,7 +129,13 @@ export default function BillEditorScreen() {
     const [showCustomSplitModal, setShowCustomSplitModal] = useState(false);
     const [customPctInputs, setCustomPctInputs] = useState<Record<string, string>>({});
 
+    const [showMultiAssignModal, setShowMultiAssignModal] = useState(false);
+    const [multiAssignItemId, setMultiAssignItemId] = useState<string | null>(null);
+    const [multiAssignSelectedUserIds, setMultiAssignSelectedUserIds] = useState<string[]>([]);
+
     const isHost = user?.id === hostId;
+    const currentBillStatus = useBillFlowSync(id, 'active', isHost);
+    const isEditable = !isFromParty || currentBillStatus === 'active';
 
     useEffect(() => {
         if ((!isExistingDraft && !isFromParty) || !user || !session) return;
@@ -274,16 +281,6 @@ export default function BillEditorScreen() {
             }
         );
 
-        // Subscribe to bill status changes (tip_selection, completed, settled)
-        const statusChannel = subscribeToBillStatus(id, (newStatus) => {
-            if (newStatus === 'tip_selection') {
-                router.replace({
-                    pathname: '/bill/tip' as any,
-                    params: { billId: id, fromParty: 'true' },
-                });
-            }
-        });
-
         // Subscribe to new participants joining
         const participantsChannel = subscribeToParticipants(id, (newParticipant) => {
             setLoadedUsers(prev => {
@@ -299,7 +296,7 @@ export default function BillEditorScreen() {
         });
 
         return () => {
-            unsubscribeAll([itemsChannel, statusChannel, participantsChannel]);
+            unsubscribeAll([itemsChannel, participantsChannel]);
         };
     }, [id, isFromParty]);
 
@@ -411,6 +408,7 @@ export default function BillEditorScreen() {
 
         if (targetIds.length === 0) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert('Pick a person', 'Please select a participant at the bottom first.');
             return;
         }
 
@@ -584,6 +582,7 @@ export default function BillEditorScreen() {
 
         if (selectedUserIds.length === 0) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert('Pick a person', 'Please select a participant at the bottom first.');
             return;
         }
 
@@ -616,14 +615,138 @@ export default function BillEditorScreen() {
         }
         setSelectedUserIds(prev => {
             if (prev.includes(userId)) {
-                // Don't allow deselecting the last user — keep at least one selected for guest
+                // Tapping the already-active person deselects them (no active person)
                 if (!isHost && prev.length === 1) return prev;
-                return prev.filter(uid => uid !== userId);
+                return [];
             }
-            return [...prev, userId];
+            // Selecting a person automatically deselects whoever was active (exclusive/radio selection)
+            return [userId];
         });
         Haptics.selectionAsync();
     };
+
+    const handleLongPressItem = (itemId: string) => {
+        let existingAssignees: string[] = [];
+        if (isFromParty) {
+            const syncItem = syncItems.find(i => i.id === itemId);
+            if (syncItem) {
+                existingAssignees = syncItem.assigned_ids
+                    ? syncItem.assigned_ids.split(',').filter(Boolean)
+                    : (syncItem.assigned_to ? [syncItem.assigned_to] : []);
+            }
+        } else {
+            existingAssignees = assignments[itemId] || [];
+        }
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setMultiAssignItemId(itemId);
+        setMultiAssignSelectedUserIds(existingAssignees);
+        setShowMultiAssignModal(true);
+    };
+
+    const handleToggleMultiAssignUser = (userId: string) => {
+        setMultiAssignSelectedUserIds(prev => {
+            if (prev.includes(userId)) {
+                return prev.filter(id => id !== userId);
+            } else {
+                return [...prev, userId];
+            }
+        });
+        Haptics.selectionAsync();
+    };
+
+    const handleToggleEveryone = () => {
+        const allUserIds = activeUsers.map(u => u.id);
+        const allSelected = allUserIds.every(uid => multiAssignSelectedUserIds.includes(uid));
+        if (allSelected) {
+            setMultiAssignSelectedUserIds([]);
+        } else {
+            setMultiAssignSelectedUserIds(allUserIds);
+        }
+        Haptics.selectionAsync();
+    };
+
+    const handleConfirmMultiAssign = async () => {
+        if (!multiAssignItemId) return;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        const newAssignees = multiAssignSelectedUserIds;
+        const itemId = multiAssignItemId;
+
+        if (isFromParty) {
+            const newAssignedIds = newAssignees.join(',');
+            const newAssignedTo = newAssignees.length > 0 ? newAssignees[0] : null;
+
+            // Optimistic update
+            const originalItem = syncItems.find(i => i.id === itemId);
+            setSyncItems(prev => prev.map(i =>
+                i.id === itemId ? { ...i, assigned_ids: newAssignedIds, assigned_to: newAssignedTo } : i
+            ));
+
+            try {
+                await assignItemMulti(itemId, newAssignees);
+            } catch (error) {
+                // Revert optimistic update on failure
+                if (originalItem) {
+                    setSyncItems(prev => prev.map(i =>
+                        i.id === itemId ? { ...i, assigned_ids: originalItem.assigned_ids, assigned_to: originalItem.assigned_to } : i
+                    ));
+                }
+                console.error('BillEditor: Failed to multi-assign item:', error);
+                Alert.alert('Error', 'Failed to update assignment. Try again.');
+            }
+        } else {
+            const newAssignments =
+                newAssignees.length === 0
+                    ? (() => { const n = { ...assignments }; delete n[itemId]; return n; })()
+                    : { ...assignments, [itemId]: newAssignees };
+            setAssignments(newAssignments);
+        }
+
+        setShowMultiAssignModal(false);
+        setMultiAssignItemId(null);
+    };
+
+    const handleBackPress = () => {
+        if (isFromParty) {
+            Alert.alert(
+                'Exit split session?',
+                'Are you sure you want to return to the lobby? All other participants will return to the lobby as well.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Exit Lobby',
+                        style: 'destructive',
+                        onPress: async () => {
+                            try {
+                                await updateBillStatus(id!, 'draft');
+                            } catch (err) {
+                                console.error('Failed to return to lobby:', err);
+                            }
+                        }
+                    }
+                ]
+            );
+        } else {
+            router.back();
+        }
+    };
+
+    useFocusEffect(
+        React.useCallback(() => {
+            const onBackPress = () => {
+                if (isFromParty && !isHost) {
+                    // Consume Android hardware back press
+                    return true;
+                }
+                handleBackPress();
+                return true;
+            };
+
+            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+            return () => subscription.remove();
+        }, [isFromParty, isHost, id])
+    );
 
     const AVATAR_COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffd54f', '#ba68c8', '#4db6ac', '#ff8a65'];
 
@@ -941,14 +1064,18 @@ export default function BillEditorScreen() {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
-                <Stack.Screen options={{ headerShown: false }} />
+                <Stack.Screen options={{ headerShown: false, gestureEnabled: !isFromParty || isHost }} />
 
                 {/* Top Navigation */}
                 <View className="flex-row items-center justify-between px-6 h-16 w-full">
                     <View className="flex-row items-center gap-3">
-                        <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-gray-100 transition-colors">
-                            <ArrowLeft color="#4b29b4" size={24} />
-                        </TouchableOpacity>
+                        {(!isFromParty || isHost) ? (
+                            <TouchableOpacity onPress={handleBackPress} className="p-2 -ml-2 rounded-full active:bg-gray-100 transition-colors">
+                                <ArrowLeft color="#4b29b4" size={24} />
+                            </TouchableOpacity>
+                        ) : (
+                            <View className="w-10" />
+                        )}
                         <DivvitLogo />
                     </View>
                     <View className="flex-row items-center gap-4">
@@ -984,7 +1111,7 @@ export default function BillEditorScreen() {
                     <View className="flex-col gap-4">
                         <View className="flex-row items-center justify-between mb-4">
                             <Text className="text-lg font-bold tracking-tight text-on-surface ml-1 flex-1 flex-shrink">Bill Items</Text>
-                            {(!isFromParty || isHost) && (
+                            {(!isFromParty || isHost) && isEditable && (
                                 <TouchableOpacity onPress={isFromParty ? handleSyncAddItem : handleAddItem} className="flex-row items-center gap-1">
                                     <Plus color="#4b29b4" size={16} />
                                     <Text className="text-primary font-bold text-sm">Add Item</Text>
@@ -1007,11 +1134,12 @@ export default function BillEditorScreen() {
                                         priceInput={isHost ? priceInputs[syncItem.id] : undefined}
                                         uniqueAssignees={uniqueAssignees}
                                         activeUsers={activeUsers}
-                                        onNameChange={isHost ? (text) => handleSyncUpdateName(syncItem.id, text) : () => {}}
-                                        onPriceChange={isHost ? (text) => handleSyncUpdatePrice(syncItem.id, text) : () => {}}
-                                        onPriceBlur={isHost ? () => handleSyncPriceBlur(syncItem.id) : () => {}}
-                                        onAssignToggle={() => handleSyncAssignItem(syncItem.id)}
-                                        onDelete={isHost ? () => handleSyncDeleteItem(syncItem.id) : () => {}}
+                                        onNameChange={isHost && isEditable ? (text) => handleSyncUpdateName(syncItem.id, text) : () => {}}
+                                        onPriceChange={isHost && isEditable ? (text) => handleSyncUpdatePrice(syncItem.id, text) : () => {}}
+                                        onPriceBlur={isHost && isEditable ? () => handleSyncPriceBlur(syncItem.id) : () => {}}
+                                        onAssignToggle={isEditable ? () => handleSyncAssignItem(syncItem.id) : () => {}}
+                                        onLongPress={isEditable ? () => handleLongPressItem(syncItem.id) : undefined}
+                                        onDelete={isHost && isEditable ? () => handleSyncDeleteItem(syncItem.id) : () => {}}
                                         setSwipeableRef={(ref) => {
                                             if (isHost && ref) swipeableRefs.current.set(syncItem.id, ref);
                                         }}
@@ -1038,11 +1166,12 @@ export default function BillEditorScreen() {
                                         priceInput={priceInputs[item.id]}
                                         uniqueAssignees={uniqueAssignees}
                                         activeUsers={activeUsers}
-                                        onNameChange={(text) => handleUpdateItemName(item.id, text)}
-                                        onPriceChange={(text) => handleUpdateItemPrice(item.id, text)}
-                                        onPriceBlur={() => handlePriceBlur(item.id)}
-                                        onAssignToggle={() => handleAssignItem(item.id)}
-                                        onDelete={() => handleDeleteItem(item.id)}
+                                        onNameChange={isEditable ? (text) => handleUpdateItemName(item.id, text) : () => {}}
+                                        onPriceChange={isEditable ? (text) => handleUpdateItemPrice(item.id, text) : () => {}}
+                                        onPriceBlur={isEditable ? () => handlePriceBlur(item.id) : () => {}}
+                                        onAssignToggle={isEditable ? () => handleAssignItem(item.id) : () => {}}
+                                        onLongPress={isEditable ? () => handleLongPressItem(item.id) : undefined}
+                                        onDelete={isEditable ? () => handleDeleteItem(item.id) : () => {}}
                                         setSwipeableRef={(ref) => {
                                             if (ref) swipeableRefs.current.set(item.id, ref);
                                         }}
@@ -1052,7 +1181,7 @@ export default function BillEditorScreen() {
                         )}
 
                         {/* Placeholder for New Item */}
-                        {(!isFromParty || isHost) && (
+                        {(!isFromParty || isHost) && isEditable && (
                             <TouchableOpacity
                                 onPress={isFromParty ? handleSyncAddItem : handleAddItem}
                                 activeOpacity={0.7}
@@ -1066,7 +1195,7 @@ export default function BillEditorScreen() {
                         )}
                     </View>
 
-                    {(!isFromParty || isHost) && (
+                    {(!isFromParty || isHost) && isEditable && (
                         <QuickActionsGrid
                             onSplitEvenly={handleSplitOptions}
                             onRandomize={handleRandomize}
@@ -1078,7 +1207,7 @@ export default function BillEditorScreen() {
                         activeUsers={activeUsers}
                         selectedUserIds={selectedUserIds}
                         onSelectUser={handleSelectUser}
-                        onAddUser={(!isFromParty || isHost) ? handleAddUser : undefined}
+                        onAddUser={((!isFromParty || isHost) && isEditable) ? handleAddUser : undefined}
                     />
 
                 </KeyboardAwareScrollView>
@@ -1211,6 +1340,117 @@ export default function BillEditorScreen() {
                                         </View>
                                     );
                                 })()}
+                            </View>
+                        </KeyboardAwareScrollView>
+                    </View>
+                </Modal>
+
+                {/* Multi-Assign Split Modal */}
+                <Modal
+                    visible={showMultiAssignModal}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => {
+                        setShowMultiAssignModal(false);
+                        setMultiAssignItemId(null);
+                    }}
+                >
+                    <View className="flex-1 justify-end bg-black/40">
+                        <KeyboardAwareScrollView
+                            contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
+                            showsVerticalScrollIndicator={false}
+                            enableOnAndroid={true}
+                        >
+                            <View className="bg-white rounded-t-3xl pb-10" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 10 }}>
+                                <View className="flex-row items-center justify-between px-5 py-5 border-b border-gray-100">
+                                    <View className="flex-1 mr-4">
+                                        <Text className="font-heading text-lg font-bold text-on-surface">How many people do you want to split this item among?</Text>
+                                    </View>
+                                    <TouchableOpacity 
+                                        onPress={() => {
+                                            setShowMultiAssignModal(false);
+                                            setMultiAssignItemId(null);
+                                        }} 
+                                        className="p-2 rounded-full bg-gray-100"
+                                    >
+                                        <X size={20} color="#6B7280" />
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View className="px-5 pt-4 max-h-[350px]">
+                                    {/* Everyone Option */}
+                                    {(() => {
+                                        const allUserIds = activeUsers.map(u => u.id);
+                                        const isEveryoneSelected = activeUsers.length > 0 && allUserIds.every(uid => multiAssignSelectedUserIds.includes(uid));
+                                        return (
+                                            <TouchableOpacity
+                                                onPress={handleToggleEveryone}
+                                                activeOpacity={0.7}
+                                                className="flex-row items-center justify-between mb-4 p-2 rounded-xl bg-gray-50/50"
+                                            >
+                                                <View className="flex-row items-center flex-1">
+                                                    <View className="w-10 h-10 rounded-full items-center justify-center mr-3 bg-primary/10">
+                                                        <Users size={18} color="#6346cd" />
+                                                    </View>
+                                                    <Text className="font-heading font-bold text-on-surface text-base">Everyone in the party</Text>
+                                                </View>
+                                                <View className={`w-6 h-6 rounded-full border-2 items-center justify-center ${isEveryoneSelected ? 'bg-primary border-primary' : 'border-gray-300'}`}>
+                                                    {isEveryoneSelected && <Check size={14} color="white" strokeWidth={3} />}
+                                                </View>
+                                            </TouchableOpacity>
+                                        );
+                                    })()}
+
+                                    {/* Scrollable List of Participants */}
+                                    <ScrollView showsVerticalScrollIndicator={true} className="max-h-[220px]">
+                                        {activeUsers.map(u => {
+                                            const isSelected = multiAssignSelectedUserIds.includes(u.id);
+                                            return (
+                                                <TouchableOpacity
+                                                    key={u.id}
+                                                    onPress={() => handleToggleMultiAssignUser(u.id)}
+                                                    activeOpacity={0.7}
+                                                    className="flex-row items-center justify-between mb-4 p-1"
+                                                >
+                                                    <View className="flex-row items-center flex-1">
+                                                        <View className="w-10 h-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: u.color }}>
+                                                            <Text className="font-heading font-bold text-white text-sm">{u.initials}</Text>
+                                                        </View>
+                                                        <Text className="font-heading font-bold text-on-surface text-base">{u.name}</Text>
+                                                    </View>
+                                                    <View className={`w-6 h-6 rounded-full border-2 items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-gray-300'}`}>
+                                                        {isSelected && <Check size={14} color="white" strokeWidth={3} />}
+                                                    </View>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </ScrollView>
+                                </View>
+
+                                {/* Buttons: Cancel & Confirm */}
+                                <View className="flex-row px-5 pt-6 gap-3">
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            setShowMultiAssignModal(false);
+                                            setMultiAssignItemId(null);
+                                        }}
+                                        activeOpacity={0.8}
+                                        className="flex-1 py-4 rounded-2xl items-center justify-center bg-gray-100"
+                                    >
+                                        <Text className="font-heading font-bold text-base text-gray-500">
+                                            Cancel
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={handleConfirmMultiAssign}
+                                        activeOpacity={0.8}
+                                        className="flex-1 py-4 rounded-2xl items-center justify-center bg-primary"
+                                    >
+                                        <Text className="font-heading font-bold text-base text-white">
+                                            Split
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </KeyboardAwareScrollView>
                     </View>

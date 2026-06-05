@@ -28,6 +28,7 @@ interface Props {
     onPriceChange: (text: string) => void;
     onPriceBlur: () => void;
     onAssignToggle: () => void;
+    onLongPress?: () => void;
     onDelete: () => void;
     setSwipeableRef: (ref: Swipeable | null) => void;
 }
@@ -46,7 +47,7 @@ const RenderRightActions = ({ onDelete }: { onDelete: () => void }) => {
 
 export default function BillItemCard({ 
     item, index, priceInput, uniqueAssignees, activeUsers, 
-    onNameChange, onPriceChange, onPriceBlur, onAssignToggle, onDelete, setSwipeableRef 
+    onNameChange, onPriceChange, onPriceBlur, onAssignToggle, onLongPress, onDelete, setSwipeableRef 
 }: Props) {
     return (
         <Animated.View
@@ -62,6 +63,8 @@ export default function BillItemCard({
             >
                 <TouchableOpacity 
                     onPress={onAssignToggle}
+                    onLongPress={onLongPress}
+                    delayLongPress={400}
                     activeOpacity={0.9} 
                     className="bg-surface-container-lowest p-5 rounded-xl flex-row items-center justify-between w-full"
                 >
@@ -80,7 +83,11 @@ export default function BillItemCard({
                                 returnKeyType="next"
                             />
                             <Text className="text-xs text-on-surface-variant font-medium mt-0.5">
-                                {uniqueAssignees.length > 0 ? `Shared by ${uniqueAssignees.length}` : 'Tap to assign'}
+                                {uniqueAssignees.length > 1
+                                    ? `Split ${uniqueAssignees.length} ways`
+                                    : uniqueAssignees.length === 1
+                                        ? 'Assigned'
+                                        : 'Tap to assign'}
                             </Text>
                         </View>
                     </View>

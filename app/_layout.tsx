@@ -1,6 +1,22 @@
 import "../global.css";
 import { Slot, useRouter, useSegments } from "expo-router";
-import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_700Bold } from '@expo-google-fonts/outfit';
+import {
+  useFonts,
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+  Outfit_800ExtraBold,
+} from '@expo-google-fonts/outfit';
+import {
+  Manrope_200ExtraLight,
+  Manrope_300Light,
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+} from '@expo-google-fonts/manrope';
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { RewardsProvider } from "../context/RewardsContext";
 import { useEffect, useCallback, useRef } from "react";
@@ -381,7 +397,18 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
     Outfit_500Medium,
+    Outfit_600SemiBold,
     Outfit_700Bold,
+    Outfit_800ExtraBold,
+    Manrope_200ExtraLight,
+    Manrope_300Light,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+    'Manrope': Manrope_400Regular,
+    'Outfit': Outfit_400Regular,
   });
 
   if (!fontsLoaded) {

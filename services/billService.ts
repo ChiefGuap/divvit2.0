@@ -373,10 +373,19 @@ export const calculateShares = (
     // Initialize all participants with 0
     participants.forEach(p => { shares[p.id] = 0; });
 
-    // Add item costs based on assignment
+    // Add item costs based on assignment (supports multi-person splits)
     billItems.forEach(item => {
-        if (item.assigned_to && shares[item.assigned_to] !== undefined) {
-            shares[item.assigned_to] += item.price * item.quantity;
+        const assignedIds = item.assigned_ids
+            ? item.assigned_ids.split(',').filter(Boolean)
+            : (item.assigned_to ? [item.assigned_to] : []);
+
+        if (assignedIds.length > 0) {
+            const costPerAssignee = (item.price * item.quantity) / assignedIds.length;
+            assignedIds.forEach(id => {
+                if (shares[id] !== undefined) {
+                    shares[id] += costPerAssignee;
+                }
+            });
         }
     });
 
