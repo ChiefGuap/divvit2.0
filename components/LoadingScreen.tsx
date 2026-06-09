@@ -47,7 +47,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
             {/* Background Gradient - Solid Purple / Blurple aesthetic */}
             {/* Using a solid color close to the image reference, or a subtle gradient */}
             <LinearGradient
-                colors={['#5B3FD9', '#4c35b5']}
+                colors={['#6346cd', '#4b29b4']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: '500',
-        fontFamily: 'System',
+        fontFamily: 'Outfit',
         opacity: 0.9,
     },
 });

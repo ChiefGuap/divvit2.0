@@ -71,7 +71,7 @@ export default function SplashScreen() {
         <View style={{ flex: 1 }}>
             <StatusBar style="light" />
             <LinearGradient
-                colors={['#5B35D5', '#4b29b4', '#3D1FA8']}
+                colors={['#6346cd', '#4b29b4']}
                 start={{ x: 0.1, y: 0 }}
                 end={{ x: 0.9, y: 1 }}
                 style={{ flex: 1 }}

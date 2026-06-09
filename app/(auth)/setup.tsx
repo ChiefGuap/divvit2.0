@@ -13,6 +13,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import DivvitLogo from '../../components/DivvitLogo';
 
 const COUNTRIES = [
     'United States', 'Canada', 'United Kingdom', 'Australia', 'Germany',
@@ -32,7 +33,7 @@ const INPUT_BASE: object = {
     height: 52,
     paddingHorizontal: 16,
     fontSize: 15,
-    color: '#141b2b',
+    color: '#111827',
 };
 
 const INPUT_FOCUSED: object = {
@@ -149,9 +150,7 @@ export default function Setup() {
                     >
                         <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '800' }}>D</Text>
                     </LinearGradient>
-                    <Text style={{ fontWeight: '800', fontSize: 20, color: '#4b29b4', letterSpacing: -0.5 }}>
-                        Divvit
-                    </Text>
+                    <DivvitLogo />
                 </View>
 
                 <TouchableOpacity onPress={handleSkip} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -171,7 +170,7 @@ export default function Setup() {
                     {/* Hero */}
                     <View style={{ marginBottom: 28, paddingHorizontal: 4 }}>
                         <Text style={{
-                            fontSize: 30, fontWeight: '800', color: '#141b2b',
+                            fontSize: 30, fontWeight: '800', color: '#111827',
                             letterSpacing: -0.5, marginBottom: 8,
                         }}>
                             Welcome to Divvit!
@@ -186,7 +185,7 @@ export default function Setup() {
                         backgroundColor: '#ffffff',
                         borderRadius: 32,
                         overflow: 'hidden',
-                        shadowColor: '#141b2b',
+                        shadowColor: '#111827',
                         shadowOffset: { width: 0, height: 8 },
                         shadowOpacity: 0.07, shadowRadius: 24,
                         elevation: 5,
@@ -241,7 +240,7 @@ export default function Setup() {
                                         alignItems: 'center', justifyContent: 'center',
                                         ...(focused === 'phone' ? INPUT_FOCUSED : {}),
                                     }}>
-                                        <Text style={{ fontSize: 15, color: '#141b2b', fontWeight: '600' }}>+1</Text>
+                                        <Text style={{ fontSize: 15, color: '#111827', fontWeight: '600' }}>+1</Text>
                                     </View>
                                     <TextInput
                                         style={[inputStyle('phone') as any, { flex: 1 }]}
@@ -271,11 +270,11 @@ export default function Setup() {
                                 >
                                     <Text style={{
                                         fontSize: 15,
-                                        color: country ? '#141b2b' : '#9ca3af',
+                                        color: country ? '#111827' : '#9ca3af',
                                     }}>
                                         {country || 'Select country'}
                                     </Text>
-                                    <ChevronDown size={18} color="#797585" strokeWidth={2} />
+                                    <ChevronDown size={18} color="#9ca3af" strokeWidth={2} />
                                 </TouchableOpacity>
                             </View>
 
@@ -294,11 +293,11 @@ export default function Setup() {
                                 >
                                     <Text style={{
                                         fontSize: 15,
-                                        color: dob ? '#141b2b' : '#9ca3af',
+                                        color: dob ? '#111827' : '#9ca3af',
                                     }}>
                                         {dobDisplay || 'Select date'}
                                     </Text>
-                                    <ChevronDown size={18} color="#797585" strokeWidth={2} />
+                                    <ChevronDown size={18} color="#9ca3af" strokeWidth={2} />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -307,8 +306,8 @@ export default function Setup() {
                     {/* Pagination dots */}
                     <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 28 }}>
                         <View style={{ width: 32, height: 8, borderRadius: 4, backgroundColor: '#6346cd' }} />
-                        <View style={{ width: 10, height: 8, borderRadius: 4, backgroundColor: '#e1e8fd' }} />
-                        <View style={{ width: 10, height: 8, borderRadius: 4, backgroundColor: '#e1e8fd' }} />
+                        <View style={{ width: 10, height: 8, borderRadius: 4, backgroundColor: '#f1f3ff' }} />
+                        <View style={{ width: 10, height: 8, borderRadius: 4, backgroundColor: '#f1f3ff' }} />
                     </View>
 
                     {/* Continue button */}
@@ -359,7 +358,7 @@ export default function Setup() {
                         paddingHorizontal: 20, paddingVertical: 16,
                         borderBottomWidth: 1, borderBottomColor: '#f1f3ff',
                     }}>
-                        <Text style={{ fontSize: 18, fontWeight: '700', color: '#141b2b' }}>Select Country</Text>
+                        <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>Select Country</Text>
                         <TouchableOpacity onPress={() => setShowCountryModal(false)} activeOpacity={0.7}>
                             <Text style={{ fontSize: 16, fontWeight: '600', color: '#4b29b4' }}>Done</Text>
                         </TouchableOpacity>
@@ -377,7 +376,7 @@ export default function Setup() {
                                 }}
                             >
                                 <Text style={{
-                                    fontSize: 16, color: '#141b2b',
+                                    fontSize: 16, color: '#111827',
                                     fontWeight: country === c ? '700' : '400',
                                 }}>
                                     {c}
@@ -404,9 +403,9 @@ export default function Setup() {
                             borderBottomWidth: 1, borderBottomColor: '#f1f3ff',
                         }}>
                             <TouchableOpacity onPress={() => setShowDobPicker(false)} activeOpacity={0.7}>
-                                <Text style={{ fontSize: 16, fontWeight: '600', color: '#797585' }}>Cancel</Text>
+                                <Text style={{ fontSize: 16, fontWeight: '600', color: '#9ca3af' }}>Cancel</Text>
                             </TouchableOpacity>
-                            <Text style={{ fontSize: 18, fontWeight: '700', color: '#141b2b' }}>Date of Birth</Text>
+                            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>Date of Birth</Text>
                             <TouchableOpacity
                                 onPress={() => { setDob(tempDob); setShowDobPicker(false); }}
                                 activeOpacity={0.7}

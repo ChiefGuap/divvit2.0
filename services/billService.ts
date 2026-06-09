@@ -109,6 +109,74 @@ export const assignItem = async (
     return data as BillItem;
 };
 
+export const assignItemMulti = async (
+    itemId: string,
+    participantIds: string[]
+): Promise<BillItem> => {
+    const assignedIds = participantIds.length > 0 ? participantIds.join(',') : null;
+    const assignedTo = participantIds.length > 0 ? participantIds[0] : null;
+
+    const { data, error } = await supabase
+        .from('bill_items')
+        .update({ 
+            assigned_ids: assignedIds,
+            assigned_to: assignedTo 
+        })
+        .eq('id', itemId)
+        .select()
+        .single();
+    if (error) throw error;
+    return data as BillItem;
+};
+
+export const assignAllItemsMulti = async (
+    billId: string,
+    participantIds: string[]
+): Promise<void> => {
+    const assignedIds = participantIds.length > 0 ? participantIds.join(',') : null;
+    const assignedTo = participantIds.length > 0 ? participantIds[0] : null;
+
+    const { error } = await supabase
+        .from('bill_items')
+        .update({ 
+            assigned_ids: assignedIds,
+            assigned_to: assignedTo 
+        })
+        .eq('bill_id', billId);
+    if (error) throw error;
+};
+
+export const clearAllAssignmentsMulti = async (
+    billId: string
+): Promise<void> => {
+    const { error } = await supabase
+        .from('bill_items')
+        .update({ 
+            assigned_ids: null,
+            assigned_to: null 
+        })
+        .eq('bill_id', billId);
+    if (error) throw error;
+};
+
+export const randomizeAssignmentsMulti = async (
+    updates: Array<{ id: string; assigned_ids: string; assigned_to: string }>
+): Promise<void> => {
+    const promises = updates.map(update => 
+        supabase
+            .from('bill_items')
+            .update({ 
+                assigned_ids: update.assigned_ids,
+                assigned_to: update.assigned_to 
+            })
+            .eq('id', update.id)
+    );
+    const results = await Promise.all(promises);
+    for (const res of results) {
+        if (res.error) throw res.error;
+    }
+};
+
 // ─── PARTICIPANTS ───────────────────────────────────────────────────────────
 
 export const getParticipants = async (billId: string): Promise<Participant[]> => {
@@ -126,12 +194,13 @@ export const getParticipants = async (billId: string): Promise<Participant[]> =>
 export const createPaymentRequests = async (
     billId: string,
     hostUserId: string,
-    participants: Array<{ userId: string; amount: number }>
+    participants: Array<{ participantId: string; userId: string | null; amount: number }>
 ) => {
     const requests = participants
         .filter(p => p.userId !== hostUserId && p.amount > 0)
         .map(p => ({
             bill_id: billId,
+            from_participant_id: p.participantId,
             from_user_id: p.userId,
             to_user_id: hostUserId,
             amount: p.amount,
@@ -207,37 +276,31 @@ export const subscribeToBillStatus = (
 
 export const subscribeToBillItems = (
     billId: string,
-    onItemChange: (item: BillItem) => void
+    onItemChange: (item: BillItem, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => void,
+    onStatus?: (status: string) => void
 ) => {
     const channel = supabase
         .channel(`bill-items-${billId}`)
         .on(
             'postgres_changes',
             {
-                event: 'UPDATE',
+                event: '*',
                 schema: 'public',
                 table: 'bill_items',
                 filter: `bill_id=eq.${billId}`,
             },
             (payload) => {
-                console.log('[Realtime] Bill item updated:', payload.new);
-                onItemChange(payload.new as BillItem);
+                console.log('[Realtime] Bill item event:', payload.eventType, payload);
+                if (payload.eventType === 'DELETE') {
+                    onItemChange(payload.old as BillItem, 'DELETE');
+                } else {
+                    onItemChange(payload.new as BillItem, payload.eventType as any);
+                }
             }
         )
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'bill_items',
-                filter: `bill_id=eq.${billId}`,
-            },
-            (payload) => {
-                console.log('[Realtime] Bill item inserted:', payload.new);
-                onItemChange(payload.new as BillItem);
-            }
-        )
-        .subscribe();
+        .subscribe((status) => {
+            if (onStatus) onStatus(status);
+        });
     return channel;
 };
 

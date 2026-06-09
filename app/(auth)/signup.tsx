@@ -15,6 +15,7 @@ import * as Crypto from 'expo-crypto';
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
 import { getAuthCallbackUrl } from '../../utils/url';
+import DivvitLogo from '../../components/DivvitLogo';
 
 // --- SVG Icons ---
 const GoogleIcon = () => (
@@ -28,12 +29,12 @@ const GoogleIcon = () => (
 
 const AppleIcon = () => (
     <Svg width={22} height={22} viewBox="0 0 24 24">
-        <Path d="M17.05 20.28c-.96 0-1.76-.36-2.4-.36-.6 0-1.4.36-2.2.36-2.73 0-5.27-1.67-6.32-3.49-2.14-3.7-.55-9.15 1.51-12.12 1.03-1.48 2.22-2.31 3.52-2.34 1.29-.03 2.11.41 2.87.41s1.77-.45 3.01-.45c1.11.02 2.13.41 2.86 1.05-2.7 1.6-2.27 5.23.44 6.34-.84 1.24-1.92 2.47-3.29 4.41-.6.86-1.18 1.77-1.76 2.64-.4.59-.79 1.17-1.15 1.55-.38.41-.71.54-1.09.54zM12.03 5.07c0-1.1.41-2.15 1.11-2.95.73-.83 1.76-1.38 2.84-1.43.08 1.1-.33 2.17-1.05 2.97-.73.81-1.78 1.41-2.9 1.41z" fill="#141b2b" />
+        <Path d="M17.05 20.28c-.96 0-1.76-.36-2.4-.36-.6 0-1.4.36-2.2.36-2.73 0-5.27-1.67-6.32-3.49-2.14-3.7-.55-9.15 1.51-12.12 1.03-1.48 2.22-2.31 3.52-2.34 1.29-.03 2.11.41 2.87.41s1.77-.45 3.01-.45c1.11.02 2.13.41 2.86 1.05-2.7 1.6-2.27 5.23.44 6.34-.84 1.24-1.92 2.47-3.29 4.41-.6.86-1.18 1.77-1.76 2.64-.4.59-.79 1.17-1.15 1.55-.38.41-.71.54-1.09.54zM12.03 5.07c0-1.1.41-2.15 1.11-2.95.73-.83 1.76-1.38 2.84-1.43.08 1.1-.33 2.17-1.05 2.97-.73.81-1.78 1.41-2.9 1.41z" fill="#111827" />
     </Svg>
 );
 
 const socialShadow = {
-    shadowColor: '#141b2b',
+    shadowColor: '#111827',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 12,
@@ -177,9 +178,7 @@ export default function SignupScreen() {
                             backgroundColor: '#4b29b4',
                         }} />
                     </View>
-                    <Text style={{ fontWeight: '800', fontSize: 24, color: '#4b29b4', letterSpacing: -0.5 }}>
-                        Divvit
-                    </Text>
+                    <DivvitLogo />
                 </Animated.View>
 
                 {/* Main card */}
@@ -195,7 +194,7 @@ export default function SignupScreen() {
                     {/* A — Headline */}
                     <View style={{ alignItems: 'center', marginBottom: 32 }}>
                         <Text style={{
-                            fontSize: 32, fontWeight: '800', color: '#141b2b',
+                            fontSize: 32, fontWeight: '800', color: '#111827',
                             textAlign: 'center', marginBottom: 8,
                         }}>
                             Get started
@@ -243,14 +242,14 @@ export default function SignupScreen() {
                         flexDirection: 'row', alignItems: 'center',
                         marginVertical: 20,
                     }}>
-                        <View style={{ flex: 1, height: 1, backgroundColor: '#cac4d6', opacity: 0.4 }} />
+                        <View style={{ flex: 1, height: 1, backgroundColor: '#e5e7eb', opacity: 0.4 }} />
                         <Text style={{
                             marginHorizontal: 14, fontSize: 12, fontWeight: '700',
-                            color: '#797585', letterSpacing: 2, textTransform: 'uppercase',
+                            color: '#9ca3af', letterSpacing: 2, textTransform: 'uppercase',
                         }}>
                             OR
                         </Text>
-                        <View style={{ flex: 1, height: 1, backgroundColor: '#cac4d6', opacity: 0.4 }} />
+                        <View style={{ flex: 1, height: 1, backgroundColor: '#e5e7eb', opacity: 0.4 }} />
                     </Animated.View>
 
                     {/* D — Google */}
@@ -266,7 +265,7 @@ export default function SignupScreen() {
                             }, socialShadow]}
                         >
                             <GoogleIcon />
-                            <Text style={{ fontSize: 17, fontWeight: '700', color: '#141b2b' }}>
+                            <Text style={{ fontSize: 17, fontWeight: '700', color: '#111827' }}>
                                 Continue with Google
                             </Text>
                         </TouchableOpacity>
@@ -286,7 +285,7 @@ export default function SignupScreen() {
                                 }, socialShadow]}
                             >
                                 <AppleIcon />
-                                <Text style={{ fontSize: 17, fontWeight: '700', color: '#141b2b' }}>
+                                <Text style={{ fontSize: 17, fontWeight: '700', color: '#111827' }}>
                                     Continue with Apple
                                 </Text>
                             </TouchableOpacity>
@@ -309,11 +308,11 @@ export default function SignupScreen() {
                     {/* F — Legal */}
                     <Animated.View style={{ opacity: bottomAnim, marginTop: 28 }}>
                         <View style={{
-                            height: 1, backgroundColor: '#cac4d6',
+                            height: 1, backgroundColor: '#e5e7eb',
                             opacity: 0.15, marginBottom: 20,
                         }} />
                         <Text style={{
-                            fontSize: 10, textAlign: 'center', color: '#797585',
+                            fontSize: 10, textAlign: 'center', color: '#9ca3af',
                             textTransform: 'uppercase', letterSpacing: 1.5, lineHeight: 16,
                         }}>
                             BY CONTINUING, YOU AGREE TO DIVVIT'S{'\n'}

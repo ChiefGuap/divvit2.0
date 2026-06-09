@@ -123,7 +123,7 @@ export default function EmailSignup() {
                 disabled={loading}
                 className="bg-divvit-secondary h-14 rounded-2xl items-center justify-center mb-8"
                 style={{
-                    shadowColor: '#B54CFF',
+                    shadowColor: '#6346cd',
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.3,
                     shadowRadius: 8,

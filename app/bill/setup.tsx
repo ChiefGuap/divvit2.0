@@ -16,7 +16,7 @@ type User = {
 
 // Keeping colors for OTHER users, but ensuring they fit the theme
 const COLORS = [
-    '#B54CFF', // Secondary Purple
+    '#6346cd', // Secondary Purple
     '#FF4C4C', // Red
     '#4CFFB5', // Mint
     '#FFB54C', // Orange
@@ -35,7 +35,7 @@ export default function ParticipantSetupScreen() {
             id: 'u1',
             name: 'You',
             avatar: 'https://i.pravatar.cc/150?u=u1',
-            color: '#B54CFF',
+            color: '#6346cd',
             initials: 'ME'
         }
     ]);
@@ -101,7 +101,7 @@ export default function ParticipantSetupScreen() {
                                 elevation: 2,
                             }}
                         >
-                            <Users size={24} color="#B54CFF" />
+                            <Users size={24} color="#6346cd" />
                         </View>
                         <Text className="text-divvit-text font-heading text-4xl leading-tight">
                             Who is splitting{'\n'}this bill?
@@ -171,7 +171,7 @@ export default function ParticipantSetupScreen() {
                             onPress={handleContinue}
                             className="bg-divvit-secondary rounded-3xl h-16 flex-row items-center justify-center space-x-2"
                             style={{
-                                shadowColor: '#B54CFF',
+                                shadowColor: '#6346cd',
                                 shadowOffset: { width: 0, height: 4 },
                                 shadowOpacity: 0.3,
                                 shadowRadius: 8,

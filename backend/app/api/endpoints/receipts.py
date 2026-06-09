@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from app.services.gemini import GeminiService
-from app.core.security import limiter
 
 router = APIRouter()
 
@@ -30,7 +29,6 @@ class ScanResponse(BaseModel):
 
 
 @router.post("/scan")
-@limiter.limit("5/minute")
 async def scan_receipt(request: Request, file: UploadFile = File(...)):
     """
     Scan a receipt image and extract structured data.

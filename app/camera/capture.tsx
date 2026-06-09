@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, Image, SafeAreaView, ScrollView } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter, Stack } from 'expo-router';
 import { ArrowLeft, Camera, Upload, X, Zap } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -30,14 +31,15 @@ export default function CaptureScreen() {
 
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            const photo = await cameraRef.current.takePictureAsync({
-                quality: 0.8,
-                base64: true,
-            });
+            const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+            if (!photo?.uri) return;
 
-            if (photo?.uri) {
-                setCapturedImage(photo.uri);
-            }
+            const resized = await ImageManipulator.manipulateAsync(
+                photo.uri,
+                [{ resize: { width: 1500 } }],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+            );
+            setCapturedImage(resized.uri);
         } catch (error) {
             console.error('Error capturing photo:', error);
             Alert.alert('Error', 'Failed to capture photo');
@@ -50,12 +52,15 @@ export default function CaptureScreen() {
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
                 quality: 0.8,
-                base64: true,
             });
+            if (result.canceled || !result.assets[0]) return;
 
-            if (!result.canceled && result.assets[0]) {
-                setCapturedImage(result.assets[0].uri);
-            }
+            const resized = await ImageManipulator.manipulateAsync(
+                result.assets[0].uri,
+                [{ resize: { width: 1500 } }],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+            );
+            setCapturedImage(resized.uri);
         } catch (error) {
             console.error('Error picking image:', error);
             Alert.alert('Error', 'Failed to pick image');
@@ -182,11 +187,11 @@ export default function CaptureScreen() {
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-            // Navigate to Party Screen instead of setup
+            // Navigate to Party Size Screen instead of setup
             router.push({
-                pathname: '/bill/party',
+                pathname: '/bill/party-size',
                 params: {
-                    id: billId,
+                    billId: billId,
                     billData: JSON.stringify(result),
                 }
             });
@@ -242,7 +247,7 @@ export default function CaptureScreen() {
                     <TouchableOpacity
                         onPress={handleAnalyze}
                         style={{
-                            backgroundColor: '#B54CFF',
+                            backgroundColor: '#6346cd',
                             paddingVertical: 18,
                             borderRadius: 16,
                             flexDirection: 'row',
@@ -265,7 +270,7 @@ export default function CaptureScreen() {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
                 <Stack.Screen options={{ headerShown: false }} />
-                <Camera color="#B54CFF" size={64} />
+                <Camera color="#6346cd" size={64} />
                 <Text style={{ fontSize: 20, fontWeight: 'bold', marginTop: 20, textAlign: 'center', color: '#111827' }}>
                     Camera Permission Required
                 </Text>
@@ -275,7 +280,7 @@ export default function CaptureScreen() {
                 <TouchableOpacity
                     onPress={requestPermission}
                     style={{
-                        backgroundColor: '#B54CFF',
+                        backgroundColor: '#6346cd',
                         paddingVertical: 14,
                         paddingHorizontal: 32,
                         borderRadius: 12,
@@ -356,7 +361,7 @@ export default function CaptureScreen() {
                         width: 72,
                         height: 72,
                         borderRadius: 36,
-                        backgroundColor: '#B54CFF',
+                        backgroundColor: '#6346cd',
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderWidth: 4,

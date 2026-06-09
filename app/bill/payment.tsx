@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     View, Text, TouchableOpacity, ScrollView, Alert,
-    ActivityIndicator, Platform, Dimensions,
+    ActivityIndicator, Platform, Dimensions, Linking,
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { ArrowLeft, Check, Lock, DollarSign, Smartphone, Banknote, Zap } from 'l
 import { usePlatformPay, PlatformPay } from '@stripe/stripe-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
+import DivvitLogo from '../../components/DivvitLogo';
 import {
     getBill,
     getBillItems,
@@ -39,14 +40,14 @@ import { supabase } from '../../lib/supabase';
 
 // ─── DESIGN TOKENS ─────────────────────────────────────────────────────────
 const COLORS = {
-    primary: '#4142e3',
-    primaryDim: '#3432d7',
-    secondaryContainer: '#d6cbff',
-    onSecondaryContainer: '#4a349d',
-    surface: '#faf4ff',
-    surfaceContainerHigh: '#e6deff',
-    onSurface: '#302950',
-    onSurfaceVariant: '#5e5680',
+    primary: '#6346cd',
+    primaryDim: '#4b29b4',
+    secondaryContainer: '#e5e7eb',
+    onSecondaryContainer: '#484554',
+    surface: '#f9f9ff',
+    surfaceContainerHigh: '#f1f3ff',
+    onSurface: '#111827',
+    onSurfaceVariant: '#484554',
     green: '#16a34a',
     greenBg: '#dcfce7',
     amber: '#92400e',
@@ -86,10 +87,12 @@ export default function PaymentScreen() {
         [participants, user]
     );
 
-    const myPaymentRequest = useMemo(
-        () => paymentRequests.find(pr => pr.from_user_id === user?.id),
-        [paymentRequests, user]
-    );
+    const myPaymentRequest = useMemo(() => {
+        return paymentRequests.find(
+            pr => pr.from_participant_id === myParticipant?.id ||
+                  (pr.from_user_id && pr.from_user_id === user?.id)
+        );
+    }, [paymentRequests, myParticipant, user]);
 
     // ─── SHARE CALCULATION ─────────────────────────────────────────────────────
 
@@ -147,7 +150,7 @@ export default function PaymentScreen() {
 
     const allPaymentsSettled = useMemo(() => {
         if (paymentRequests.length === 0) {
-            const needsPayment = participants.filter(p => p.user_id !== hostId && !p.is_guest);
+            const needsPayment = participants.filter(p => p.user_id !== hostId);
             return needsPayment.length === 0;
         }
         return paymentRequests.every(pr => pr.status === 'confirmed');
@@ -250,17 +253,62 @@ export default function PaymentScreen() {
     };
 
     const handlePayVenmo = async () => {
-        if (!hostProfile?.venmo_handle) return;
+        if (!hostProfile?.venmo_handle) {
+            Alert.alert(
+                'Venmo Not Set Up',
+                "The host hasn't added their Venmo username yet. Ask them to add it in their profile settings."
+            );
+            return;
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        await openVenmo(hostProfile.venmo_handle, myAmount, 'Divvit: Bill split');
-        showDidYouPayDialog('venmo');
+        await openVenmo(
+            hostProfile.venmo_handle,
+            myAmount,
+            bill?.restaurant_name || 'Divvit Bill'
+        );
+        
+        setTimeout(() => {
+            Alert.alert(
+                'Payment Complete?',
+                `Did you send $${myAmount.toFixed(2)} via Venmo?`,
+                [
+                    { 
+                        text: 'Yes, I paid!', 
+                        onPress: () => doMarkAsSent('venmo')
+                    },
+                    { text: 'Not yet', style: 'cancel' }
+                ]
+            );
+        }, 1500);
     };
 
     const handlePayCashApp = async () => {
-        if (!hostProfile?.cashapp_handle) return;
+        if (!hostProfile?.cashapp_handle) {
+            Alert.alert(
+                'Cash App Not Set Up',
+                "The host hasn't added their Cash App tag yet."
+            );
+            return;
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        await openCashApp(hostProfile.cashapp_handle, myAmount);
-        showDidYouPayDialog('cashapp');
+        await openCashApp(
+            hostProfile.cashapp_handle,
+            myAmount
+        );
+        
+        setTimeout(() => {
+            Alert.alert(
+                'Payment Complete?',
+                `Did you send $${myAmount.toFixed(2)} via Cash App?`,
+                [
+                    {
+                        text: 'Yes, I paid!',
+                        onPress: () => doMarkAsSent('cashapp')
+                    },
+                    { text: 'Not yet', style: 'cancel' }
+                ]
+            );
+        }, 1500);
     };
 
     const handlePayApplePay = async () => {
@@ -271,10 +319,33 @@ export default function PaymentScreen() {
     };
 
     const handlePayZelle = async () => {
-        if (!hostProfile?.zelle_handle) return;
+        if (!hostProfile?.zelle_handle) {
+            Alert.alert(
+                'Zelle Not Set Up',
+                "The host hasn't added their Zelle phone or email yet."
+            );
+            return;
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        await openZelle(hostProfile.zelle_handle);
-        showDidYouPayDialog('zelle');
+        await openZelle(
+            hostProfile.zelle_handle,
+            myAmount,
+            hostParticipant?.name || 'Host'
+        );
+        
+        setTimeout(() => {
+            Alert.alert(
+                'Payment Complete?',
+                `Did you send $${myAmount.toFixed(2)} via Zelle?`,
+                [
+                    {
+                        text: 'Yes, I paid!',
+                        onPress: () => doMarkAsSent('zelle')
+                    },
+                    { text: 'Not yet', style: 'cancel' }
+                ]
+            );
+        }, 2000);
     };
 
     const handlePayCash = async () => {
@@ -362,23 +433,31 @@ export default function PaymentScreen() {
     };
 
     const handleParticipantAction = useCallback((participant: Participant) => {
-        const request = paymentRequests.find(pr => pr.from_user_id === participant.user_id);
+        const request = paymentRequests.find(
+            pr => pr.from_participant_id === participant.id ||
+                  (pr.from_user_id && participant.user_id && pr.from_user_id === participant.user_id)
+        );
         const amount = request?.amount || (shares[participant.id] || 0);
         const profile = participant.user_id ? participantProfiles[participant.user_id] : null;
 
         const alertOptions: Array<{ text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }> = [];
 
         alertOptions.push({
-            text: profile?.venmo_handle
-                ? 'Request via Venmo'
-                : 'Request via Venmo (search manually)',
-            onPress: () => {
-                if (profile?.venmo_handle) {
-                    requestVenmo(profile.venmo_handle, amount, 'Divvit: Bill split');
-                } else {
-                    // No handle on file — open Venmo with amount pre-filled, host searches manually
-                    requestVenmoNoRecipient(amount, `Divvit: Bill split - ${participant.name}`);
+            text: '💙 Request via Venmo',
+            onPress: async () => {
+                const venmo = profile?.venmo_handle;
+                if (!venmo) {
+                    Alert.alert(
+                        'No Venmo',
+                        `${participant.name} hasn't added their Venmo username yet.`
+                    );
+                    return;
                 }
+                await requestVenmo(
+                    venmo,
+                    amount,
+                    bill?.restaurant_name || 'Bill Split'
+                );
             },
         });
 
@@ -442,7 +521,7 @@ export default function PaymentScreen() {
             <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' }} edges={['top']}>
                 <Stack.Screen options={{ headerShown: false }} />
                 <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={{ color: COLORS.onSurfaceVariant, marginTop: 16, fontWeight: '500' }}>Loading payment...</Text>
+                <Text style={{ color: COLORS.onSurfaceVariant, marginTop: 16, fontWeight: '500', fontFamily: 'Outfit' }}>Loading payment...</Text>
             </SafeAreaView>
         );
     }
@@ -461,7 +540,7 @@ export default function PaymentScreen() {
                 label: 'Venmo',
                 subtitle: `@${hostProfile.venmo_handle.replace(/^@/, '')}`,
                 iconBg: '#EFF6FF',
-                icon: <Text style={{ color: '#3D95CE', fontWeight: '900', fontSize: 28 }}>V</Text>,
+                icon: <Text style={{ color: '#3D95CE', fontWeight: '800', fontSize: 28 }}>V</Text>,
                 onPress: handlePayVenmo,
             });
         }
@@ -481,7 +560,7 @@ export default function PaymentScreen() {
                 label: 'Zelle',
                 subtitle: 'Bank Transfer',
                 iconBg: '#FAF5FF',
-                icon: <Zap size={28} color="#6D1ED4" />,
+                icon: <Zap size={28} color="#6346cd" />,
                 onPress: handlePayZelle,
             });
         }
@@ -531,9 +610,7 @@ export default function PaymentScreen() {
                 >
                     <ArrowLeft size={20} color={COLORS.primary} />
                 </TouchableOpacity>
-                <Text style={{ fontSize: 22, fontWeight: '900', color: COLORS.primary, letterSpacing: -0.5 }}>
-                    Divvit
-                </Text>
+                <DivvitLogo />
                 <View style={{ width: 40 }} />
             </View>
 
@@ -558,7 +635,7 @@ export default function PaymentScreen() {
                             activeOpacity={0.85}
                             style={{
                                 height: 56, borderRadius: 999,
-                                backgroundColor: allPaymentsSettled ? COLORS.primary : '#cac4d6',
+                                backgroundColor: allPaymentsSettled ? COLORS.primary : '#e5e7eb',
                                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
                                 shadowColor: COLORS.primary,
                                 shadowOffset: { width: 0, height: 8 },
@@ -815,6 +892,44 @@ export default function PaymentScreen() {
                                 </Animated.View>
                             ))}
                         </View>
+
+                        {__DEV__ && (
+                            <TouchableOpacity
+                                style={{
+                                    marginTop: 16,
+                                    padding: 12,
+                                    backgroundColor: '#f1f3ff',
+                                    borderRadius: 12,
+                                    alignItems: 'center',
+                                }}
+                                onPress={async () => {
+                                    // Test each scheme
+                                    const schemes = [
+                                        'venmo://',
+                                        'cashme://',
+                                        'zelle://',
+                                        'paypal://',
+                                    ];
+                                    const results: Record<string, boolean> = {};
+                                    for (const scheme of schemes) {
+                                        results[scheme] = await Linking.canOpenURL(scheme);
+                                    }
+                                    Alert.alert(
+                                        'Deep Link Test Results',
+                                        Object.entries(results)
+                                            .map(([scheme, canOpen]) => 
+                                                `${scheme}: ${canOpen ? '✅ Can open' : '❌ Cannot open'}`
+                                            )
+                                            .join('\n'),
+                                        [{ text: 'OK' }]
+                                    );
+                                }}
+                            >
+                                <Text style={{ fontSize: 12, color: '#484554', fontWeight: '600' }}>
+                                    🔧 Test Deep Links (dev only)
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 )}
             </View>
@@ -843,18 +958,17 @@ export default function PaymentScreen() {
                 {participants.map((participant, index) => {
                     const isParticipantHost = participant.user_id === hostId;
                     const request = paymentRequests.find(
-                        pr => pr.from_user_id === participant.user_id
+                        pr => pr.from_participant_id === participant.id ||
+                              (pr.from_user_id && participant.user_id && pr.from_user_id === participant.user_id)
                     );
                     const amount = isParticipantHost
                         ? (shares[participant.id] || 0)
                         : (request?.amount || shares[participant.id] || 0);
                     const status = isParticipantHost
                         ? 'host'
-                        : participant.is_guest
-                            ? 'external'
-                            : (request?.status || 'pending');
+                        : (request?.status || (participant.is_guest ? 'external' : 'pending'));
 
-                    const canTap = !isParticipantHost && !participant.is_guest && status !== 'confirmed';
+                    const canTap = !isParticipantHost && status !== 'confirmed';
 
                     return (
                         <Animated.View

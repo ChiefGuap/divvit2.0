@@ -131,8 +131,8 @@ export default function SocialFinanceScreen() {
                         {/* Layer 3a — shadow base */}
                         <View style={{
                             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                            borderRadius: 48, backgroundColor: '#1a1a2e',
-                            shadowColor: '#141b2b',
+                            borderRadius: 48, backgroundColor: '#111827',
+                            shadowColor: '#111827',
                             shadowOffset: { width: 0, height: 16 },
                             shadowOpacity: 0.20, shadowRadius: 40,
                             elevation: 12,
@@ -162,7 +162,7 @@ export default function SocialFinanceScreen() {
                             flexDirection: 'row',
                             alignItems: 'center',
                             gap: 14,
-                            shadowColor: '#141b2b',
+                            shadowColor: '#111827',
                             shadowOffset: { width: 0, height: 12 },
                             shadowOpacity: 0.10, shadowRadius: 32,
                             elevation: 10,
@@ -183,7 +183,7 @@ export default function SocialFinanceScreen() {
                                 }}>
                                     Experience
                                 </Text>
-                                <Text style={{ fontSize: 15, fontWeight: '600', color: '#141b2b' }}>
+                                <Text style={{ fontSize: 15, fontWeight: '600', color: '#111827' }}>
                                     Financial Harmony
                                 </Text>
                             </View>
@@ -197,7 +197,7 @@ export default function SocialFinanceScreen() {
                         fontSize: 36, fontWeight: '800', textAlign: 'center',
                         lineHeight: 44, letterSpacing: -0.5,
                     }}>
-                        <Text style={{ color: '#141b2b' }}>Join the future of </Text>
+                        <Text style={{ color: '#111827' }}>Join the future of </Text>
                         <Text style={{ color: '#4b29b4' }}>Social Finance.</Text>
                     </Text>
                 </Animated.View>

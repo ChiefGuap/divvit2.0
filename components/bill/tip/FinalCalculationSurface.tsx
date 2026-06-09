@@ -12,7 +12,7 @@ type Props = {
 
 export default function FinalCalculationSurface({ tipLabel, tipAmount, total, onContinue, isLoading = false }: Props) {
     return (
-        <View className="bg-[#dce2f7]/30 rounded-[40px] p-8 mt-2 mb-4">
+        <View className="bg-[#e5e7eb]/30 rounded-[40px] p-8 mt-2 mb-4">
             <View className="flex-row justify-between items-center mb-6">
                 <Text className="text-on-surface-variant font-medium">Selected Tip ({tipLabel})</Text>
                 <Text className="font-bold text-on-surface">${tipAmount.toFixed(2)}</Text>
@@ -22,7 +22,7 @@ export default function FinalCalculationSurface({ tipLabel, tipAmount, total, on
                 <Text className="font-heading text-2xl font-bold text-on-surface">${total.toFixed(2)}</Text>
             </View>
 
-            <View className="pt-6 border-t border-[#cac4d6]/50" style={{ paddingHorizontal: 16, width: '100%' }}>
+            <View className="pt-6 border-t border-[#e5e7eb]/50" style={{ paddingHorizontal: 16, width: '100%' }}>
                 <TouchableOpacity
                     onPress={onContinue}
                     disabled={isLoading}

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/Shared/Divvit-Rescue/hooks -type f -name *.ts -o -name *.tsx)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(npx tsc:*)",
+      "Bash(npx expo:*)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
+    ]
+  }
+}

@@ -3,18 +3,60 @@ Divvit Backend - FastAPI Entry Point
 A stateless, containerized backend for receipt parsing and data processing.
 """
 
+import asyncio
+import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
-from slowapi import _rate_limit_exceeded_handler
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.api.endpoints import receipts
-from app.core.security import limiter
+from app.api.endpoints import deals
+from app.services.scraper import scrape_all_deals, get_cache_status
+
+logger = logging.getLogger(__name__)
+
+
+async def run_periodic_scraper():
+    """Background task worker that runs a scrape check every hour."""
+    worker_logger = logging.getLogger("app.scraper_worker")
+    worker_logger.info("Background deal scraper worker started.")
+    
+    # Wait 10 seconds after startup before the first run to allow everything to initialize
+    await asyncio.sleep(10)
+    
+    while True:
+        try:
+            status = get_cache_status()
+            # If the cache is expired, has never scraped, or is currently empty
+            if not status.get("cache_fresh") or status.get("last_scraped") is None:
+                worker_logger.info("Cache is stale or empty. Triggering automatic 24-hour deals scrape...")
+                await scrape_all_deals(force=True)
+                worker_logger.info("Automatic deals scrape completed successfully.")
+            else:
+                worker_logger.info("Cache is still fresh. Skipping periodic scrape.")
+        except Exception as e:
+            worker_logger.error(f"Error in background scraper worker: {e}")
+        
+        # Check every hour (3600 seconds)
+        await asyncio.sleep(3600)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    scraper_task = asyncio.create_task(run_periodic_scraper())
+    yield
+    # Shutdown
+    scraper_task.cancel()
+    try:
+        await scraper_task
+    except asyncio.CancelledError:
+        pass
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -27,14 +69,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 from app.core.config import settings
 
 if not settings.gemini_api_key:
-    raise RuntimeError(
-        "GEMINI_API_KEY is not set in backend/.env — receipt scanning will not work."
+    logging.warning(
+        "⚠️  GEMINI_API_KEY is not set — receipt scanning will not work. "
+        "Set the GEMINI_API_KEY env var or Cloud Run secret."
     )
 
 app = FastAPI(
     title="Divvit Receipt API",
     description="Backend API for receipt scanning and bill splitting",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Trust Proxy Headers (Cloud Run sets X-Forwarded-For)
@@ -43,10 +87,7 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 # Add Security Headers Middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Configure SlowAPI rate limiter
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
+
 
 # Configure CORS for frontend access
 app.add_middleware(
@@ -59,6 +100,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(receipts.router, prefix="/api/v1", tags=["receipts"])
+app.include_router(deals.router, prefix="/api/v1", tags=["deals"])
 
 
 @app.get("/")

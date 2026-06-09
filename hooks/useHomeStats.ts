@@ -29,7 +29,6 @@ type RecentActivity = {
 };
 
 export type HomeStats = {
-    points: number;
     totalSplit: number;
     minutesSaved: number;
     recentActivity: RecentActivity[];
@@ -94,7 +93,7 @@ const formatBillTitle = (bill: Bill): string => {
 };
 
 export function useHomeStats(): HomeStats {
-    const { user, profile, session, isLoading: isAuthLoading } = useAuth();
+    const { user, session, isLoading: isAuthLoading } = useAuth();
     const [isFetching, setIsFetching] = useState(false);
     const [hasFetched, setHasFetched] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -213,7 +212,6 @@ export function useHomeStats(): HomeStats {
     // Calculate stats from completed bills only
     const totalSplit = completedBills.reduce((sum, bill) => sum + (bill.total_amount || 0), 0);
     const minutesSaved = completedBills.length * 5;
-    const points = profile?.points || 0;
 
     // Get 2 most recent completed bills for activity
     const recentActivity: RecentActivity[] = completedBills.slice(0, 2).map(bill => ({
@@ -235,7 +233,6 @@ export function useHomeStats(): HomeStats {
     const isLoading = isAuthLoading || isFetching || (!hasFetched && !error);
 
     return {
-        points,
         totalSplit,
         minutesSaved,
         recentActivity,

@@ -2,6 +2,7 @@ import "../global.css";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { AuthProvider, useAuth } from "../context/AuthContext";
+import { RewardsProvider } from "../context/RewardsContext";
 import { useEffect, useCallback, useRef } from "react";
 import { View, ActivityIndicator, Linking, Alert } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -14,7 +15,7 @@ function LoadingScreen() {
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFFFFF" }}>
       <StatusBar style="dark" />
-      <ActivityIndicator size="large" color="#B54CFF" />
+      <ActivityIndicator size="large" color="#6346cd" />
     </View>
   );
 }
@@ -296,7 +297,9 @@ export default function RootLayout() {
       merchantIdentifier="merchant.com.theraq17.divvit"
     >
       <AuthProvider>
-        <ProtectedLayout />
+        <RewardsProvider>
+          <ProtectedLayout />
+        </RewardsProvider>
       </AuthProvider>
     </StripeProvider>
   );

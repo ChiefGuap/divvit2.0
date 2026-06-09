@@ -18,6 +18,7 @@ import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler'
 import { ArrowLeft, Check, ArrowRight, Plus, Trash2, Save, Shuffle, Users, X, Columns } from 'lucide-react-native';
 import * as Crypto from 'expo-crypto';
 import { useAuth } from '../../context/AuthContext';
+import DivvitLogo from '../../components/DivvitLogo';
 import { supabase } from '../../lib/supabase';
 import {
     getBillItems,
@@ -25,6 +26,10 @@ import {
     updateBillItem,
     deleteBillItem,
     assignItem,
+    assignItemMulti,
+    assignAllItemsMulti,
+    clearAllAssignmentsMulti,
+    randomizeAssignmentsMulti,
     subscribeToBillItems,
     subscribeToBillStatus,
     subscribeToParticipants,
@@ -188,7 +193,7 @@ export default function BillEditorScreen() {
                         id: p.id,
                         name: p.name,
                         avatar: p.avatar_url || `https://i.pravatar.cc/150?u=${p.id}`,
-                        color: p.color || '#B54CFF',
+                        color: p.color || '#6346cd',
                         initials: p.initials || p.name.slice(0, 2).toUpperCase(),
                     }));
                     setLoadedUsers(usersFromDB);
@@ -219,6 +224,7 @@ export default function BillEditorScreen() {
     // Replaces old broadcast-based sync with database-backed realtime subscriptions
     const [syncItems, setSyncItems] = useState<SyncBillItem[]>([]);
     const [hasFetchedSyncItems, setHasFetchedSyncItems] = useState(false);
+    const [realtimeStatus, setRealtimeStatus] = useState<string>('connecting');
 
     useEffect(() => {
         if (!id || !isFromParty) return;
@@ -237,16 +243,36 @@ export default function BillEditorScreen() {
         };
         loadSyncItems();
 
-        // Subscribe to bill_items changes (assignments, new items)
-        const itemsChannel = subscribeToBillItems(id, (updatedItem) => {
-            setSyncItems(prev => {
-                const exists = prev.find(i => i.id === updatedItem.id);
-                if (exists) {
-                    return prev.map(i => i.id === updatedItem.id ? updatedItem : i);
+        // Subscribe to bill_items changes (assignments, new items, deletions)
+        const itemsChannel = subscribeToBillItems(
+            id,
+            (item, eventType) => {
+                if (eventType === 'DELETE') {
+                    setSyncItems(prev => prev.filter(i => i.id !== item.id));
+                    setItems(prev => prev.filter(i => i.id !== item.id));
+                } else {
+                    setSyncItems(prev => {
+                        const exists = prev.find(i => i.id === item.id);
+                        if (exists) {
+                            return prev.map(i => i.id === item.id ? item : i);
+                        }
+                        return [...prev, item];
+                    });
                 }
-                return [...prev, updatedItem];
-            });
-        });
+            },
+            (status) => {
+                console.log(`[Realtime] status: ${status}`);
+                setRealtimeStatus(status);
+
+                if (status === 'SUBSCRIBED') {
+                    console.log('[Realtime] ✅ Connected and listening for item updates');
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error('[Realtime] ❌ Channel error — items will not sync');
+                } else if (status === 'TIMED_OUT') {
+                    console.error('[Realtime] ⏱ Subscription timed out');
+                }
+            }
+        );
 
         // Subscribe to bill status changes (tip_selection, completed, settled)
         const statusChannel = subscribeToBillStatus(id, (newStatus) => {
@@ -266,7 +292,7 @@ export default function BillEditorScreen() {
                     id: newParticipant.id,
                     name: newParticipant.name,
                     avatar: newParticipant.avatar_url || `https://i.pravatar.cc/150?u=${newParticipant.id}`,
-                    color: newParticipant.color || '#B54CFF',
+                    color: newParticipant.color || '#6346cd',
                     initials: newParticipant.initials || newParticipant.name.slice(0, 2).toUpperCase(),
                 }];
             });
@@ -292,15 +318,37 @@ export default function BillEditorScreen() {
     ];
     const activeScannedTip = isExistingDraft ? loadedScannedTip : scannedTip;
 
-    const subtotal = useMemo(() => items.reduce((sum, item) => sum + (item.price || 0), 0), [items]);
+    const effectiveItems = useMemo(() => {
+        if (isFromParty) {
+            return syncItems.map(si => ({ id: si.id, name: si.name, price: si.price }));
+        }
+        return items;
+    }, [isFromParty, syncItems, items]);
+
+    const effectiveAssignments = useMemo(() => {
+        if (isFromParty) {
+            const map: Record<string, string[]> = {};
+            syncItems.forEach(si => {
+                if (si.assigned_ids) {
+                    map[si.id] = si.assigned_ids.split(',').filter(Boolean);
+                } else if (si.assigned_to) {
+                    map[si.id] = [si.assigned_to];
+                }
+            });
+            return map;
+        }
+        return assignments;
+    }, [isFromParty, syncItems, assignments]);
+
+    const subtotal = useMemo(() => effectiveItems.reduce((sum, item) => sum + (item.price || 0), 0), [effectiveItems]);
     const billTotal = subtotal + taxAmount;
 
     const userFinalTotals = useMemo(() => {
         const totals: Record<string, number> = {};
         activeUsers.forEach(u => totals[u.id] = 0);
 
-        Object.entries(assignments).forEach(([itemId, userIds]) => {
-            const item = items.find(i => i.id === itemId);
+        Object.entries(effectiveAssignments).forEach(([itemId, userIds]) => {
+            const item = effectiveItems.find(i => i.id === itemId);
             if (item && userIds && userIds.length > 0) {
                 const costPerUser = item.price / userIds.length;
                 userIds.forEach(userId => {
@@ -316,7 +364,7 @@ export default function BillEditorScreen() {
             });
         }
         return totals;
-    }, [assignments, items, activeUsers, taxAmount, subtotal]);
+    }, [effectiveAssignments, effectiveItems, activeUsers, taxAmount, subtotal]);
 
     const progressSegments = useMemo(() => {
         const segments: { width: number; color: string; id: string }[] = [];
@@ -359,9 +407,9 @@ export default function BillEditorScreen() {
     // ─── Party mode (GUEST only): single-assignment item claiming via bill_items table ───
     // Host uses the multi-assign local state path instead (see handleAssignItem).
     const handleSyncAssignItem = async (itemId: string) => {
-        const targetParticipantId = myParticipantId;
+        const targetIds = isHost ? selectedUserIds : (myParticipantId ? [myParticipantId] : []);
 
-        if (!targetParticipantId) {
+        if (targetIds.length === 0) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             return;
         }
@@ -369,28 +417,43 @@ export default function BillEditorScreen() {
         const item = syncItems.find(i => i.id === itemId);
         if (!item) return;
 
-        // Guests can't claim items already assigned to someone else
-        if (item.assigned_to && item.assigned_to !== targetParticipantId) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            return;
+        const currentAssignees = item.assigned_ids
+            ? item.assigned_ids.split(',').filter(Boolean)
+            : (item.assigned_to ? [item.assigned_to] : []);
+
+        let newAssignees: string[];
+        if (isHost) {
+            const allAlreadyAssigned = targetIds.every(uid => currentAssignees.includes(uid));
+            if (allAlreadyAssigned) {
+                newAssignees = currentAssignees.filter(uid => !targetIds.includes(uid));
+            } else {
+                newAssignees = Array.from(new Set([...currentAssignees, ...targetIds]));
+            }
+        } else {
+            const myId = myParticipantId!;
+            if (currentAssignees.includes(myId)) {
+                newAssignees = currentAssignees.filter(uid => uid !== myId);
+            } else {
+                newAssignees = [...currentAssignees, myId];
+            }
         }
 
-        const isTargetItem = item.assigned_to === targetParticipantId;
-        const newAssignment = isTargetItem ? null : targetParticipantId;
+        const newAssignedIds = newAssignees.join(',');
+        const newAssignedTo = newAssignees.length > 0 ? newAssignees[0] : null;
 
         // Optimistic update
         setSyncItems(prev => prev.map(i =>
-            i.id === itemId ? { ...i, assigned_to: newAssignment } : i
+            i.id === itemId ? { ...i, assigned_ids: newAssignedIds, assigned_to: newAssignedTo } : i
         ));
         Haptics.selectionAsync();
 
         // Persist to Supabase (triggers realtime for others)
         try {
-            await assignItem(itemId, newAssignment);
+            await assignItemMulti(itemId, newAssignees);
         } catch (error) {
             // Revert optimistic update on failure
             setSyncItems(prev => prev.map(i =>
-                i.id === itemId ? { ...i, assigned_to: item.assigned_to } : i
+                i.id === itemId ? { ...i, assigned_ids: item.assigned_ids, assigned_to: item.assigned_to } : i
             ));
             console.error('BillEditor: Failed to assign item:', error);
             Alert.alert('Error', 'Failed to assign item. Try again.');
@@ -405,6 +468,7 @@ export default function BillEditorScreen() {
             const created = await createBillItems(id, [{ name: '', price: 0, quantity: 1 }]);
             if (created.length > 0) {
                 setSyncItems(prev => [...prev, created[0]]);
+                setItems(prev => [...prev, { id: created[0].id, name: '', price: 0 }]);
             }
         } catch (err) {
             console.error('BillEditor: Failed to add item:', err);
@@ -447,13 +511,16 @@ export default function BillEditorScreen() {
 
     const handleSyncDeleteItem = async (itemId: string) => {
         if (!isHost) return;
-        const prevItems = syncItems;
+        const prevSyncItems = syncItems;
+        const prevLocalItems = items;
         setSyncItems(prev => prev.filter(i => i.id !== itemId));
+        setItems(prev => prev.filter(i => i.id !== itemId));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         try {
             await deleteBillItem(itemId);
         } catch (err) {
-            setSyncItems(prevItems);
+            setSyncItems(prevSyncItems);
+            setItems(prevLocalItems);
             console.error('BillEditor: Failed to delete item:', err);
             Alert.alert('Error', 'Failed to delete item.');
         }
@@ -465,7 +532,7 @@ export default function BillEditorScreen() {
         if (!isHost || !id) return;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        const validItems = items.filter(item => item.name.trim() || item.price > 0);
+        const validItems = effectiveItems.filter(item => item.name.trim() || item.price > 0);
         if (validItems.length === 0) {
             Alert.alert('No Items', 'Please add at least one item before continuing.');
             return;
@@ -474,33 +541,6 @@ export default function BillEditorScreen() {
         try {
             const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
             const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-            // Delete existing bill_items and re-create from local state
-            await fetch(`${supabaseUrl}/rest/v1/bill_items?bill_id=eq.${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'apikey': supabaseKey!,
-                    'Authorization': `Bearer ${session!.access_token}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            const itemsPayload = validItems.map(item => ({
-                bill_id: id,
-                name: item.name,
-                price: Number(item.price) || 0,
-                quantity: 1,
-            }));
-            await fetch(`${supabaseUrl}/rest/v1/bill_items`, {
-                method: 'POST',
-                headers: {
-                    'apikey': supabaseKey!,
-                    'Authorization': `Bearer ${session!.access_token}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=minimal',
-                },
-                body: JSON.stringify(itemsPayload),
-            });
 
             // Save assignments + tax to bill details JSONB
             await fetch(`${supabaseUrl}/rest/v1/bills?id=eq.${id}`, {
@@ -514,7 +554,7 @@ export default function BillEditorScreen() {
                 body: JSON.stringify({
                     details: {
                         items: validItems,
-                        assignments,
+                        assignments: effectiveAssignments,
                         users: activeUsers,
                         tax: taxAmount,
                         subtotal,
@@ -536,8 +576,8 @@ export default function BillEditorScreen() {
 
     // ─── Multi-assignment via local state (works in standalone AND party-host mode) ───
     const handleAssignItem = (itemId: string) => {
-        // In party mode, guests use the single-assign sync path; host uses multi-assign local state
-        if (isFromParty && !isHost) {
+        // In party mode, both host and guest use the real-time Postgres assignment path
+        if (isFromParty) {
             handleSyncAssignItem(itemId);
             return;
         }
@@ -594,7 +634,10 @@ export default function BillEditorScreen() {
             async (name) => {
                 if (!name || !name.trim()) return;
                 const trimmed = name.trim();
-                const initials = trimmed.slice(0, 2).toUpperCase();
+                const parts = trimmed.split(' ');
+                const initials = parts.length >= 2
+                    ? (parts[0][0] + parts[1][0]).toUpperCase()
+                    : trimmed.slice(0, 2).toUpperCase();
                 const colorIndex = (additionalUsers.length + activeUsers.length) % AVATAR_COLORS.length;
                 const color = AVATAR_COLORS[colorIndex];
 
@@ -688,49 +731,139 @@ export default function BillEditorScreen() {
         );
     };
 
-    const handleSplitEvenly = () => {
+    const handleSplitEvenly = async () => {
         const allUserIds = activeUsers.map(u => u.id);
-        const newAssignments: Record<string, string[]> = {};
-        items.forEach(item => {
-            if (item.name || item.price > 0) newAssignments[item.id] = [...allUserIds];
-        });
-        setAssignments(newAssignments);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    };
 
-    const handleRandomize = () => {
-        const newAssignments: Record<string, string[]> = {};
-        items.forEach(item => {
-            if (item.name || item.price > 0) {
-                const randomUser = activeUsers[Math.floor(Math.random() * activeUsers.length)];
-                newAssignments[item.id] = [randomUser.id];
+        if (isFromParty) {
+            if (!isHost || !id) return;
+            const assignedIdsString = allUserIds.join(',');
+            const assignedTo = allUserIds.length > 0 ? allUserIds[0] : null;
+
+            // Optimistic update
+            setSyncItems(prev => prev.map(i => ({
+                ...i,
+                assigned_ids: assignedIdsString,
+                assigned_to: assignedTo
+            })));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            try {
+                await assignAllItemsMulti(id, allUserIds);
+            } catch (err) {
+                console.error('BillEditor: Failed to split evenly:', err);
+                Alert.alert('Error', 'Failed to split evenly. Please try again.');
             }
-        });
-        setAssignments(newAssignments);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+            const newAssignments: Record<string, string[]> = {};
+            items.forEach(item => {
+                if (item.name || item.price > 0) newAssignments[item.id] = [...allUserIds];
+            });
+            setAssignments(newAssignments);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
     };
 
-    const handleClearAssignments = () => {
-        setAssignments({});
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    const handleRandomize = async () => {
+        if (isFromParty) {
+            if (!isHost || !id) return;
+            
+            const updates = syncItems.map(item => {
+                const randomUser = activeUsers[Math.floor(Math.random() * activeUsers.length)];
+                return {
+                    id: item.id,
+                    assigned_ids: randomUser.id,
+                    assigned_to: randomUser.id
+                };
+            });
+
+            // Optimistic update
+            setSyncItems(prev => prev.map(i => {
+                const update = updates.find(u => u.id === i.id);
+                return update ? { ...i, assigned_ids: update.assigned_ids, assigned_to: update.assigned_to } : i;
+            }));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            try {
+                await randomizeAssignmentsMulti(updates);
+            } catch (err) {
+                console.error('BillEditor: Failed to randomize:', err);
+                Alert.alert('Error', 'Failed to randomize assignments. Please try again.');
+            }
+        } else {
+            const newAssignments: Record<string, string[]> = {};
+            items.forEach(item => {
+                if (item.name || item.price > 0) {
+                    const randomUser = activeUsers[Math.floor(Math.random() * activeUsers.length)];
+                    newAssignments[item.id] = [randomUser.id];
+                }
+            });
+            setAssignments(newAssignments);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
     };
 
-    const handleApplyCustomSplit = () => {
+    const handleClearAssignments = async () => {
+        if (isFromParty) {
+            if (!isHost || !id) return;
+
+            // Optimistic update
+            setSyncItems(prev => prev.map(i => ({
+                ...i,
+                assigned_ids: null,
+                assigned_to: null
+            })));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+            try {
+                await clearAllAssignmentsMulti(id);
+            } catch (err) {
+                console.error('BillEditor: Failed to clear assignments:', err);
+                Alert.alert('Error', 'Failed to clear assignments. Please try again.');
+            }
+        } else {
+            setAssignments({});
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
+    };
+
+    const handleApplyCustomSplit = async () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const newAssignments: Record<string, string[]> = {};
         const proportionalShares: string[] = [];
         activeUsers.forEach(u => {
             const pct = parseFloat(customPctInputs[u.id]) || 0;
             const shares = Math.round(pct * 10);
             for (let i = 0; i < shares; i++) proportionalShares.push(u.id);
         });
-        items.forEach(item => {
-            if (item.name || item.price > 0) {
-                if (proportionalShares.length > 0) newAssignments[item.id] = [...proportionalShares];
+
+        if (isFromParty) {
+            if (!isHost || !id) return;
+            const assignedIdsString = proportionalShares.join(',');
+            const assignedTo = proportionalShares.length > 0 ? proportionalShares[0] : null;
+
+            // Optimistic update
+            setSyncItems(prev => prev.map(i => ({
+                ...i,
+                assigned_ids: assignedIdsString,
+                assigned_to: assignedTo
+            })));
+            setShowCustomSplitModal(false);
+
+            try {
+                await assignAllItemsMulti(id, proportionalShares);
+            } catch (err) {
+                console.error('BillEditor: Failed to apply custom split:', err);
+                Alert.alert('Error', 'Failed to apply custom split. Please try again.');
             }
-        });
-        setAssignments(newAssignments);
-        setShowCustomSplitModal(false);
+        } else {
+            const newAssignments: Record<string, string[]> = {};
+            items.forEach(item => {
+                if (item.name || item.price > 0) {
+                    if (proportionalShares.length > 0) newAssignments[item.id] = [...proportionalShares];
+                }
+            });
+            setAssignments(newAssignments);
+            setShowCustomSplitModal(false);
+        }
     };
 
     const handleSaveAsDraft = async () => {
@@ -816,7 +949,7 @@ export default function BillEditorScreen() {
                         <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-gray-100 transition-colors">
                             <ArrowLeft color="#4b29b4" size={24} />
                         </TouchableOpacity>
-                        <Text className="text-2xl font-black text-primary tracking-tight">Divvit</Text>
+                        <DivvitLogo />
                     </View>
                     <View className="flex-row items-center gap-4">
                         <View className="px-3 py-1 rounded-full bg-surface-container-high">
@@ -859,37 +992,40 @@ export default function BillEditorScreen() {
                             )}
                         </View>
 
-                        {isFromParty && !isHost ? (
-                            /* ── Party mode (guest): render from bill_items table with single-assignment ── */
+                        {isFromParty ? (
+                            /* ── Party mode (host or guest): render from bill_items table with realtime assignment ── */
                             syncItems.length > 0 ? syncItems.map((syncItem, index) => {
-                                const assigneeId = syncItem.assigned_to;
-                                const uniqueAssignees = assigneeId ? [assigneeId] : [];
+                                const uniqueAssignees = syncItem.assigned_ids
+                                    ? syncItem.assigned_ids.split(',').filter(Boolean)
+                                    : (syncItem.assigned_to ? [syncItem.assigned_to].filter(Boolean) as string[] : []);
 
                                 return (
                                     <BillItemCard
                                         key={syncItem.id}
                                         item={{ id: syncItem.id, name: syncItem.name, price: syncItem.price }}
                                         index={index}
-                                        priceInput={undefined as any}
+                                        priceInput={isHost ? priceInputs[syncItem.id] : undefined}
                                         uniqueAssignees={uniqueAssignees}
                                         activeUsers={activeUsers}
-                                        onNameChange={() => {}}
-                                        onPriceChange={() => {}}
-                                        onPriceBlur={() => {}}
-                                        onAssignToggle={() => handleAssignItem(syncItem.id)}
-                                        onDelete={() => {}}
-                                        setSwipeableRef={() => {}}
+                                        onNameChange={isHost ? (text) => handleSyncUpdateName(syncItem.id, text) : () => {}}
+                                        onPriceChange={isHost ? (text) => handleSyncUpdatePrice(syncItem.id, text) : () => {}}
+                                        onPriceBlur={isHost ? () => handleSyncPriceBlur(syncItem.id) : () => {}}
+                                        onAssignToggle={() => handleSyncAssignItem(syncItem.id)}
+                                        onDelete={isHost ? () => handleSyncDeleteItem(syncItem.id) : () => {}}
+                                        setSwipeableRef={(ref) => {
+                                            if (isHost && ref) swipeableRefs.current.set(syncItem.id, ref);
+                                        }}
                                     />
                                 );
                             }) : (
                                 <View className="items-center py-8">
                                     <Text className="text-on-surface-variant font-medium text-sm">
-                                        Waiting for host to add items...
+                                        {isHost ? 'Add some items to get started...' : 'Waiting for host to add items...'}
                                     </Text>
                                 </View>
                             )
                         ) : (
-                            /* ── Host (party or standalone): full editing with multi-assignment ── */
+                            /* ── Standalone Mode: full editing with multi-assignment ── */
                             items.map((item, index) => {
                                 const assignedUserIds = assignments[item.id] || [];
                                 const uniqueAssignees = Array.from(new Set(assignedUserIds));

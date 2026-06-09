@@ -13,7 +13,7 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, Check, X, DollarSign } from 'lucide-react-native';
+import { ArrowLeft, Check, X, DollarSign, Smartphone } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../context/AuthContext';
 
@@ -240,7 +240,7 @@ export default function SetupProfileScreen() {
 
     const renderUsernameStatus = () => {
         if (isCheckingUsername) {
-            return <ActivityIndicator size="small" color="#B54CFF" />;
+            return <ActivityIndicator size="small" color="#6346cd" />;
         }
         if (usernameAvailable === true && username.length >= 3) {
             return <Check size={20} color="#22C55E" />;
@@ -383,7 +383,7 @@ export default function SetupProfileScreen() {
                         >
                             <View
                                 className="w-8 h-8 rounded-lg items-center justify-center mr-3"
-                                style={{ backgroundColor: '#6D1ED4' }}
+                                style={{ backgroundColor: '#6346cd' }}
                             >
                                 <Text className="text-white font-bold text-sm">Z</Text>
                             </View>
@@ -444,7 +444,7 @@ export default function SetupProfileScreen() {
                         style={
                             !loading && username.trim() && usernameAvailable !== false
                                 ? {
-                                    shadowColor: '#B54CFF',
+                                    shadowColor: '#6346cd',
                                     shadowOffset: { width: 0, height: 4 },
                                     shadowOpacity: 0.3,
                                     shadowRadius: 8,

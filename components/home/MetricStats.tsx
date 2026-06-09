@@ -1,23 +1,25 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { TrendingUp } from 'lucide-react-native';
-
-// TODO: fetch from Supabase rewards points
-const rewardName = "$10 Gift Card";
-const currentPoints = 578;
-const pointsToNextReward = 422;
-const totalPointsNeeded = 1000;
-const progressPercent = currentPoints / totalPointsNeeded;
+import { useRewards } from '../../context/RewardsContext';
+import { getNextReward } from '../../utils/rewardsMath';
 
 interface MetricStatsProps {
   totalSplit: string; // pre-formatted currency string e.g., "$2,976"
   minutesSaved: string; // e.g., "45"
 }
 
-export function MetricStats({ totalSplit, minutesSaved }: MetricStatsProps) {
+export function MetricStats({ totalSplit }: MetricStatsProps) {
+  const { points, catalog } = useRewards();
+  const currentPoints = points ?? 0;
+  const { nextReward, pointsLeft, progressPercent, totalNeeded, isMaxed } =
+    getNextReward(currentPoints, catalog);
+
+  const rewardName = nextReward?.name ?? '—';
+
   return (
     <View className="flex-row gap-4 mb-8 items-stretch">
-      {/* Total Split Card — amount bottom-aligned via justify-between */}
+      {/* Total Split Card */}
       <View className="flex-1 bg-primary-container rounded-[2rem] p-6 shadow-md shadow-primary/20 min-h-[180px] justify-between">
         <View className="flex-row justify-between items-start">
           <Text className="text-sm font-heading font-bold text-white uppercase tracking-widest opacity-80">Total Split</Text>
@@ -42,7 +44,6 @@ export function MetricStats({ totalSplit, minutesSaved }: MetricStatsProps) {
           elevation: 3,
         }}
       >
-        {/* A) Header label */}
         <Text style={{
           fontSize: 10,
           fontWeight: '700',
@@ -54,31 +55,35 @@ export function MetricStats({ totalSplit, minutesSaved }: MetricStatsProps) {
           My Rewards
         </Text>
 
-        {/* B) Current reward name */}
-        <Text style={{
-          fontSize: 18,
-          fontWeight: '800',
-          color: '#141b2b',
-          marginBottom: 2,
-        }}>
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: '800',
+            color: '#111827',
+            marginBottom: 2,
+          }}
+          numberOfLines={1}
+        >
           {rewardName}
         </Text>
 
-        {/* C) Points until next reward */}
         <Text style={{
           fontSize: 12,
           fontWeight: '600',
           color: '#4b29b4',
           marginBottom: 10,
         }}>
-          {pointsToNextReward} pts until next reward
+          {isMaxed
+            ? 'Max tier reached!'
+            : nextReward
+              ? `${pointsLeft} pts until next reward`
+              : 'Earn points by splitting bills'}
         </Text>
 
-        {/* D) Progress bar */}
         <View style={{
           height: 8,
           borderRadius: 999,
-          backgroundColor: '#e1e8fd',
+          backgroundColor: '#f1f3ff',
           marginBottom: 8,
           overflow: 'hidden',
         }}>
@@ -86,15 +91,14 @@ export function MetricStats({ totalSplit, minutesSaved }: MetricStatsProps) {
             height: 8,
             borderRadius: 999,
             backgroundColor: '#4b29b4',
-            width: `${progressPercent * 100}%`, // TODO: wire to Supabase rewards points
+            width: `${progressPercent * 100}%`,
           }} />
         </View>
 
-        {/* E) Points scale row */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Text style={{ fontSize: 10, fontWeight: '600', color: '#484554' }}>0</Text>
-          <Text style={{ fontSize: 10, fontWeight: '800', color: '#141b2b' }}>{currentPoints}PTS</Text>
-          <Text style={{ fontSize: 10, fontWeight: '600', color: '#484554' }}>{totalPointsNeeded}PTS</Text>
+          <Text style={{ fontSize: 10, fontWeight: '800', color: '#111827' }}>{currentPoints}PTS</Text>
+          <Text style={{ fontSize: 10, fontWeight: '600', color: '#484554' }}>{totalNeeded || 0}PTS</Text>
         </View>
       </View>
     </View>

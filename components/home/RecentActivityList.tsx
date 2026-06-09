@@ -59,7 +59,7 @@ export function RecentActivityList({ items, onItemPress, isLoading }: RecentActi
             Icon = Utensils;
           } else if (isGas) {
             Icon = Fuel;
-            iconColor = "#61578d";
+            iconColor = "#484554";
             statusText = "Pending";
             statusColor = "#92400e";         // amber-800
             statusBgColor = "#fef3c7";       // amber-100

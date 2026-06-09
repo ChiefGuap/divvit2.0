@@ -122,7 +122,7 @@ export const DigitalReceipt = ({ date, total, items, storeName = 'DIVVIT', tax =
                                 fontSize: 20,
                                 fontWeight: 'bold',
                                 letterSpacing: 4,
-                                color: '#1A1A1A',
+                                color: '#111827',
                             }}
                         >
                             {storeName}
@@ -283,7 +283,7 @@ export const DigitalReceipt = ({ date, total, items, storeName = 'DIVVIT', tax =
                                 fontFamily: 'Courier',
                                 fontSize: 14,
                                 fontWeight: 'bold',
-                                color: '#1A1A1A',
+                                color: '#111827',
                             }}
                         >
                             TOTAL
@@ -293,7 +293,7 @@ export const DigitalReceipt = ({ date, total, items, storeName = 'DIVVIT', tax =
                                 fontFamily: 'Courier',
                                 fontSize: 24,
                                 fontWeight: 'bold',
-                                color: '#1A1A1A',
+                                color: '#111827',
                             }}
                         >
                             ${total.toFixed(2)}

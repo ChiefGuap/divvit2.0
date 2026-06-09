@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { awardDailyLogin } from '../services/rewardsService';
 import { Profile } from '../types';
 
 type AuthContextType = {
@@ -183,6 +184,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (newSession?.user) {
                 setSession(newSession);
                 setUser(newSession.user);
+
+                if (event === 'SIGNED_IN') {
+                    awardDailyLogin(newSession.user.id)
+                        .then(result => {
+                            if (result.points_awarded > 0) {
+                                console.log('[Rewards] Daily login bonus awarded:', result);
+                            }
+                        })
+                        .catch(err => console.warn('[Rewards] Daily login failed:', err));
+                }
 
                 const profileData = await fetchProfile(newSession.user.id, newSession.access_token);
                 if (mounted) {

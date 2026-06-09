@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, SlideInDown } from 'react-native-reanimated';
 import { ArrowLeft, Calendar, CheckCircle, Clock, Receipt, ChevronDown, ChevronUp, Bell } from 'lucide-react-native';
+import DivvitLogo from '../../../components/DivvitLogo';
 
 // --- Types ---
 type User = {
@@ -72,7 +73,7 @@ const PersonRow = ({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 marginBottom: 10,
-                shadowColor: '#141b2b',
+                shadowColor: '#111827',
                 shadowOffset: { width: 0, height: 1 },
                 shadowOpacity: 0.05,
                 shadowRadius: 4,
@@ -108,7 +109,7 @@ const PersonRow = ({
                         </View>
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={{ fontWeight: '800', color: '#141b2b', fontSize: 14 }}>{user.name}</Text>
+                        <Text style={{ fontWeight: '800', color: '#111827', fontSize: 14 }}>{user.name}</Text>
                         <Text style={{ fontSize: 12, color: '#484554', fontWeight: '500', marginTop: 2 }}>{subtitle}</Text>
                     </View>
                 </View>
@@ -117,7 +118,7 @@ const PersonRow = ({
                 <View style={{ alignItems: 'flex-end' }}>
                     <Text style={{
                         fontWeight: '800', fontSize: 15,
-                        color: isSettled ? '#141b2b' : '#4b29b4',
+                        color: isSettled ? '#111827' : '#4b29b4',
                     }}>
                         ${amount.toFixed(2)}
                     </Text>
@@ -207,9 +208,7 @@ export default function HistoryDetailScreen() {
                 >
                     <ArrowLeft size={20} color="#4b29b4" />
                 </TouchableOpacity>
-                <Text style={{ fontSize: 22, fontWeight: '900', color: '#4b29b4', letterSpacing: -0.5 }}>
-                    Divvit
-                </Text>
+                <DivvitLogo />
                 <View style={{ width: 40 }} />
             </View>
 
@@ -242,7 +241,7 @@ export default function HistoryDetailScreen() {
                     }}>
                         Bill Summary
                     </Text>
-                    <Text style={{ fontSize: 48, fontWeight: '900', color: '#ffffff', letterSpacing: -1, marginBottom: 16 }}>
+                    <Text style={{ fontSize: 48, fontWeight: '800', color: '#ffffff', letterSpacing: -1, marginBottom: 16 }}>
                         ${total_amount.toFixed(2)}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
@@ -267,7 +266,7 @@ export default function HistoryDetailScreen() {
                         flexDirection: 'row', alignItems: 'center',
                         justifyContent: 'space-between', marginBottom: 14, paddingHorizontal: 4,
                     }}>
-                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#141b2b', letterSpacing: -0.3 }}>
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', letterSpacing: -0.3 }}>
                             Who Paid What
                         </Text>
                         <Text style={{ fontSize: 10, fontWeight: '800', color: '#4b29b4', letterSpacing: 2, textTransform: 'uppercase' }}>
@@ -334,7 +333,7 @@ export default function HistoryDetailScreen() {
                                         <Text style={{ color: '#484554', fontSize: 14, fontWeight: '500', flex: 1, marginRight: 12 }}>
                                             {item.name}
                                         </Text>
-                                        <Text style={{ color: '#141b2b', fontWeight: '700', fontSize: 14 }}>
+                                        <Text style={{ color: '#111827', fontWeight: '700', fontSize: 14 }}>
                                             ${item.price.toFixed(2)}
                                         </Text>
                                     </View>
@@ -348,7 +347,7 @@ export default function HistoryDetailScreen() {
                                         marginTop: items.length > 0 ? 4 : 0,
                                     }}>
                                         <Text style={{ color: '#484554', fontSize: 14, fontWeight: '500' }}>Tax</Text>
-                                        <Text style={{ color: '#141b2b', fontWeight: '700', fontSize: 14 }}>${tax.toFixed(2)}</Text>
+                                        <Text style={{ color: '#111827', fontWeight: '700', fontSize: 14 }}>${tax.toFixed(2)}</Text>
                                     </View>
                                 )}
                                 {tip > 0 && (
@@ -356,7 +355,7 @@ export default function HistoryDetailScreen() {
                                         flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10,
                                     }}>
                                         <Text style={{ color: '#484554', fontSize: 14, fontWeight: '500' }}>Service Charge</Text>
-                                        <Text style={{ color: '#141b2b', fontWeight: '700', fontSize: 14 }}>${tip.toFixed(2)}</Text>
+                                        <Text style={{ color: '#111827', fontWeight: '700', fontSize: 14 }}>${tip.toFixed(2)}</Text>
                                     </View>
                                 )}
                             </View>
@@ -368,23 +367,23 @@ export default function HistoryDetailScreen() {
                 {pendingUsers.length > 0 && (
                     <View style={{
                         flexDirection: 'row', alignItems: 'center', gap: 14,
-                        backgroundColor: '#e6deff',
+                        backgroundColor: '#f1f3ff',
                         borderRadius: 20, padding: 16,
-                        borderWidth: 1, borderColor: '#cbbefc',
+                        borderWidth: 1, borderColor: '#e5e7eb',
                     }}>
                         <View style={{
                             width: 44, height: 44, borderRadius: 12,
                             backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center',
-                            shadowColor: '#141b2b', shadowOffset: { width: 0, height: 1 },
+                            shadowColor: '#111827', shadowOffset: { width: 0, height: 1 },
                             shadowOpacity: 0.08, shadowRadius: 3, elevation: 1,
                         }}>
                             <Bell size={20} color="#4b29b4" />
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={{ fontSize: 13, fontWeight: '800', color: '#1d1245', marginBottom: 2 }}>
+                            <Text style={{ fontSize: 13, fontWeight: '800', color: '#111827', marginBottom: 2 }}>
                                 Pending payments
                             </Text>
-                            <Text style={{ fontSize: 12, color: '#493f73', fontWeight: '500' }}>
+                            <Text style={{ fontSize: 12, color: '#484554', fontWeight: '500' }}>
                                 {pendingUsers[0].name} hasn't responded yet.
                             </Text>
                         </View>

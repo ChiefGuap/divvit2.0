@@ -9,7 +9,9 @@ import {
     Share,
     ScrollView,
     ActivityIndicator,
+    StyleSheet,
 } from 'react-native';
+import DivvitLogo from '../../components/DivvitLogo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { X, Share2, UserPlus, ArrowRight, Pencil, MoreHorizontal, BadgeCheck, Users } from 'lucide-react-native';
@@ -32,7 +34,7 @@ const getJoinedTimeAgo = (dateString?: string): string => {
 
 export default function PartyScreen() {
     const router = useRouter();
-    const { id: billId, billData } = useLocalSearchParams<{ id: string; billData?: string }>();
+    const { id: billId, billData, partySize } = useLocalSearchParams<{ id: string; billData?: string; partySize?: string }>();
     const { user, session } = useAuth();
 
     const [participants, setParticipants] = useState<Participant[]>([]);
@@ -323,7 +325,7 @@ export default function PartyScreen() {
             <SafeAreaView style={{ flex: 1, backgroundColor: '#f9f9ff', alignItems: 'center', justifyContent: 'center' }} edges={['top']}>
                 <Stack.Screen options={{ headerShown: false }} />
                 <ActivityIndicator size="large" color="#4b29b4" />
-                <Text style={{ color: '#484554', marginTop: 16, fontWeight: '500' }}>Loading party...</Text>
+                <Text style={{ color: '#484554', marginTop: 16, fontWeight: '500', fontFamily: 'Outfit' }}>Loading party...</Text>
             </SafeAreaView>
         );
     }
@@ -348,9 +350,7 @@ export default function PartyScreen() {
                 >
                     <X size={20} color="#4b29b4" />
                 </TouchableOpacity>
-                <Text style={{ fontSize: 22, fontWeight: '900', color: '#4b29b4', letterSpacing: -0.5 }}>
-                    Divvit
-                </Text>
+                <DivvitLogo />
                 <View style={{ width: 40 }} />
             </View>
 
@@ -371,7 +371,7 @@ export default function PartyScreen() {
                         activeOpacity={0.7}
                         style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
                     >
-                        <Text style={{ fontSize: 28, fontWeight: '800', color: '#141b2b', letterSpacing: -0.5 }}>
+                        <Text style={{ fontSize: 28, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>
                             {partyName}
                         </Text>
                         <View style={{
@@ -395,7 +395,7 @@ export default function PartyScreen() {
                             borderRadius: 32,
                             padding: 24,
                             alignItems: 'center',
-                            shadowColor: '#141b2b',
+                            shadowColor: '#111827',
                             shadowOffset: { width: 0, height: 12 },
                             shadowOpacity: 0.06,
                             shadowRadius: 32,
@@ -404,12 +404,19 @@ export default function PartyScreen() {
                             borderWidth: 1,
                             borderColor: 'rgba(202,196,214,0.2)',
                         }}>
-                            <QRCode
-                                value={deepLinkUrl}
-                                size={180}
-                                color="#111827"
-                                backgroundColor="white"
-                            />
+                            <View style={styles.qrWrapper}>
+                                <View style={styles.fastestMethodBadge}>
+                                    <Text style={styles.fastestMethodText}>⚡ FASTEST METHOD</Text>
+                                </View>
+                                <View style={styles.qrBorder}>
+                                    <QRCode
+                                        value={deepLinkUrl}
+                                        size={180}
+                                        color="#111827"
+                                        backgroundColor="white"
+                                    />
+                                </View>
+                            </View>
                             <TouchableOpacity
                                 onPress={handleShare}
                                 activeOpacity={0.8}
@@ -437,12 +444,12 @@ export default function PartyScreen() {
                     >
                         <View style={{
                             width: 80, height: 80, borderRadius: 40,
-                            backgroundColor: '#e9edff', alignItems: 'center', justifyContent: 'center',
+                            backgroundColor: '#f1f3ff', alignItems: 'center', justifyContent: 'center',
                             marginBottom: 16,
                         }}>
                             <Users size={36} color="#4b29b4" />
                         </View>
-                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#141b2b', marginBottom: 6 }}>
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 6 }}>
                             Waiting for Host
                         </Text>
                         <Text style={{ fontSize: 14, color: '#484554', textAlign: 'center', fontWeight: '500' }}>
@@ -458,11 +465,13 @@ export default function PartyScreen() {
                         justifyContent: 'space-between', marginBottom: 16, paddingHorizontal: 4,
                     }}>
                         <View>
-                            <Text style={{ fontSize: 20, fontWeight: '800', color: '#141b2b', letterSpacing: -0.3 }}>
+                            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', letterSpacing: -0.3 }}>
                                 Roll Call
                             </Text>
                             <Text style={{ fontSize: 12, color: '#484554', fontWeight: '500', marginTop: 2 }}>
-                                {participants.length} {participants.length === 1 ? 'member' : 'members'} joined
+                                {partySize 
+                                    ? `${participants.length} of ${partySize} joined` 
+                                    : `${participants.length} ${participants.length === 1 ? 'member' : 'members'} joined`}
                             </Text>
                         </View>
                         {isHost && (
@@ -498,7 +507,7 @@ export default function PartyScreen() {
                                         flexDirection: 'row',
                                         alignItems: 'center',
                                         justifyContent: 'space-between',
-                                        shadowColor: '#141b2b',
+                                        shadowColor: '#111827',
                                         shadowOffset: { width: 0, height: 1 },
                                         shadowOpacity: 0.04,
                                         shadowRadius: 4,
@@ -518,7 +527,7 @@ export default function PartyScreen() {
                                             </Text>
                                         </View>
                                         <View style={{ flex: 1 }}>
-                                            <Text style={{ fontWeight: '800', color: '#141b2b', fontSize: 14 }}>
+                                            <Text style={{ fontWeight: '800', color: '#111827', fontSize: 14 }}>
                                                 {participant.name}
                                             </Text>
                                             {isParticipantHost ? (
@@ -576,7 +585,7 @@ export default function PartyScreen() {
                         style={{
                             height: 60,
                             borderRadius: 999,
-                            backgroundColor: participants.length > 0 ? '#4b29b4' : '#cac4d6',
+                            backgroundColor: participants.length > 0 ? '#4b29b4' : '#e5e7eb',
                             flexDirection: 'row',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -614,7 +623,7 @@ export default function PartyScreen() {
                         shadowOpacity: 0.2, shadowRadius: 20, elevation: 10,
                     }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                            <Text style={{ fontSize: 20, fontWeight: '800', color: '#141b2b' }}>Add Guest</Text>
+                            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>Add Guest</Text>
                             <TouchableOpacity
                                 onPress={() => setShowAddModal(false)}
                                 style={{
@@ -628,7 +637,7 @@ export default function PartyScreen() {
 
                         <View style={{
                             height: 52, backgroundColor: '#f9f9ff', borderRadius: 16,
-                            borderWidth: 1, borderColor: '#e9edff',
+                            borderWidth: 1, borderColor: '#f1f3ff',
                             justifyContent: 'center', paddingHorizontal: 16, marginBottom: 12,
                         }}>
                             <TextInput
@@ -639,7 +648,7 @@ export default function PartyScreen() {
                                 autoFocus
                                 returnKeyType="done"
                                 onSubmitEditing={handleAddGuest}
-                                style={{ color: '#141b2b', fontSize: 16, padding: 0 }}
+                                style={{ color: '#111827', fontSize: 16, padding: 0 }}
                             />
                         </View>
 
@@ -652,7 +661,7 @@ export default function PartyScreen() {
                             disabled={!guestName.trim() || isAddingGuest}
                             style={{
                                 height: 52, borderRadius: 16,
-                                backgroundColor: guestName.trim() ? '#4b29b4' : '#e9edff',
+                                backgroundColor: guestName.trim() ? '#4b29b4' : '#f1f3ff',
                                 alignItems: 'center', justifyContent: 'center',
                             }}
                         >
@@ -673,3 +682,31 @@ export default function PartyScreen() {
         </SafeAreaView>
     );
 }
+
+const styles = StyleSheet.create({
+    qrWrapper: {
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    fastestMethodBadge: {
+        backgroundColor: '#6346cd',
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 999,
+        marginBottom: 8,
+    },
+    fastestMethodText: {
+        color: '#ffffff',
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 1.5,
+        fontFamily: 'Outfit',
+    },
+    qrBorder: {
+        borderWidth: 2,
+        borderColor: '#6346cd',
+        borderRadius: 20,
+        padding: 12,
+        backgroundColor: '#ffffff',
+    },
+});

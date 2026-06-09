@@ -31,7 +31,7 @@ export function DashboardActions({ onNewSplit, onManualScan, onRecentLogs }: Das
             className="flex-1 bg-surface-container-low p-6 rounded-[2rem] flex-col items-center justify-center gap-3"
             style={{ minHeight: 100 }}
           >
-            <ScanText size={32} color="#4a28b3" />
+            <ScanText size={32} color="#4b29b4" />
             <Text className="text-on-surface font-heading font-bold text-sm">Manual Scan</Text>
           </TouchableOpacity>
 
@@ -41,7 +41,7 @@ export function DashboardActions({ onNewSplit, onManualScan, onRecentLogs }: Das
             className="flex-1 bg-surface-container-low p-6 rounded-[2rem] flex-col items-center justify-center gap-3"
             style={{ minHeight: 100 }}
           >
-            <History size={32} color="#4a28b3" />
+            <History size={32} color="#4b29b4" />
             <Text className="text-on-surface font-heading font-bold text-sm">Recent Logs</Text>
           </TouchableOpacity>
         </View>

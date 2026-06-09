@@ -294,7 +294,7 @@ export default function PersonalInfoScreen() {
                         onPress={handleContinue}
                         className="bg-divvit-secondary h-14 rounded-2xl items-center justify-center"
                         style={{
-                            shadowColor: '#B54CFF',
+                            shadowColor: '#6346cd',
                             shadowOffset: { width: 0, height: 4 },
                             shadowOpacity: 0.3,
                             shadowRadius: 8,

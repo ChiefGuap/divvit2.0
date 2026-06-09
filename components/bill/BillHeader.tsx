@@ -44,33 +44,41 @@ export default function BillHeader({ subtotal, taxAmount, taxInput, setTaxInput,
         <View className="mb-8 mt-2">
             <View className="flex-row justify-between items-end mb-6">
                 <View className="flex-1 flex-shrink mr-4">
-                    <Text className="font-semibold text-on-surface-variant uppercase tracking-widest text-[11px] mb-1">Subtotal</Text>
+                    <Text className="font-semibold text-on-surface-variant uppercase tracking-widest text-[11px] mb-1">Subtotal (pre-tip)</Text>
                     <Text className="text-4xl font-extrabold tracking-tight text-on-surface">${subtotal.toFixed(2)}</Text>
                 </View>
-                <View className="items-end">
-                    <View className="flex-row items-center mb-1">
-                        <Text className="text-on-surface-variant text-sm mr-1">Tax</Text>
-                        <Text className="font-medium text-sm text-on-surface">$</Text>
-                        <TextInput
-                            value={taxInput || (taxAmount > 0 ? taxAmount.toFixed(2) : '')}
-                            onChangeText={(text) => {
-                                const cleaned = text.replace(/[^0-9.]/g, '');
-                                setTaxInput(cleaned);
-                                setTaxAmount(parseFloat(cleaned) || 0);
-                            }}
-                            onBlur={() => setTaxInput('')}
-                            placeholder="$0.00"
-                            placeholderTextColor="#9CA3AF"
-                            keyboardType="decimal-pad"
-                            className="font-medium text-sm text-on-surface min-w-[40px] text-right"
-                        />
+                {/* Right side: Tax + Total, using a fixed 2-column grid so both rows align */}
+                <View style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
+                    {/* Tax Row */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{ color: '#6B7280', fontSize: 14, marginRight: 8 }}>Tax</Text>
+                        {/* Value column — fixed width so $ and digits always line up */}
+                        <View style={{ width: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <TextInput
+                                value={taxInput ? `$${taxInput}` : (taxAmount > 0 ? `$${taxAmount.toFixed(2)}` : '')}
+                                onChangeText={(text) => {
+                                    const cleaned = text.replace(/[^0-9.]/g, '');
+                                    setTaxInput(cleaned);
+                                    setTaxAmount(parseFloat(cleaned) || 0);
+                                }}
+                                onBlur={() => setTaxInput('')}
+                                placeholder="$0.00"
+                                placeholderTextColor="#9CA3AF"
+                                keyboardType="decimal-pad"
+                                style={{ fontSize: 14, fontWeight: '500', color: '#111827', textAlign: 'right', minWidth: 50, padding: 0 }}
+                            />
+                        </View>
                     </View>
-                    <View className="flex-row items-center">
-                        <Text className="text-xl font-bold text-primary mr-1">Total</Text>
-                        <AnimatedNumber
-                            value={billTotal}
-                            className="text-xl font-bold text-primary"
-                        />
+
+                    {/* Total Row — same value-column width so $ aligns directly below Tax $ */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#4b29b4', marginRight: 8 }}>Total</Text>
+                        <View style={{ width: 80, alignItems: 'flex-end' }}>
+                            <AnimatedNumber
+                                value={billTotal}
+                                style={{ fontSize: 20, fontWeight: '800', color: '#4b29b4', textAlign: 'right' }}
+                            />
+                        </View>
                     </View>
                 </View>
             </View>
