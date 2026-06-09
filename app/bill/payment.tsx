@@ -1091,6 +1091,33 @@ export default function PaymentScreen() {
                                             elevation: 2,
                                         }}
                                     >
+                                        {tile.key === 'zelle' && savedZelleBank && (
+                                            <TouchableOpacity
+                                                onPress={(e) => {
+                                                    e.stopPropagation();
+                                                    handleChangeZelleBank();
+                                                }}
+                                                activeOpacity={0.6}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 14,
+                                                    right: 14,
+                                                    backgroundColor: `${COLORS.primary}12`,
+                                                    paddingVertical: 4,
+                                                    paddingHorizontal: 8,
+                                                    borderRadius: 8,
+                                                }}
+                                            >
+                                                <Text style={{
+                                                    fontSize: 10,
+                                                    fontWeight: '700',
+                                                    color: COLORS.primary,
+                                                }}>
+                                                    Change
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )}
+
                                         <View style={{
                                             width: 72, height: 72, borderRadius: 999,
                                             backgroundColor: tile.iconBg,
