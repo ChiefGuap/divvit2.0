@@ -204,7 +204,7 @@ export default function CheckoutScreen() {
         } else if (method === 'cashapp' && hostPaymentMethods.cashapp_handle) {
             await openCashApp(hostPaymentMethods.cashapp_handle, amountOwed);
         } else if (method === 'zelle' && hostPaymentMethods.zelle_handle) {
-            await openZelle(hostPaymentMethods.zelle_handle);
+            await openZelle(hostPaymentMethods.zelle_handle, amountOwed, 'Host');
         } else if (method === 'applecash' && hostPaymentMethods.apple_pay_handle) {
             await openAppleCash(hostPaymentMethods.apple_pay_handle, amountOwed, note);
         }

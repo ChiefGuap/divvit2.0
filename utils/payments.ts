@@ -222,10 +222,179 @@ export const openAppleCash = async (
 };
 
 // ─── ZELLE ───────────────────────────────────────────────
-// Zelle does NOT have a public deep link scheme.
-// The only option is to open the user's banking app.
-// Best UX: show instructions + open their bank app or Zelle website
+// Zelle does NOT have its own app — it's built into banking apps.
+// We maintain a registry of major US banks with their iOS URL schemes
+// so we can open the user's specific bank app directly.
+//
+// The payer's bank choice is saved locally (AsyncStorage) so they
+// only pick once, then it's one-tap every time after that.
 
+export type ZelleBank = {
+  id: string;
+  name: string;
+  shortName: string;
+  color: string;
+  iconLetter: string;
+  iosScheme: string;
+  appStoreId: string;
+  androidPackage: string;
+};
+
+export const ZELLE_BANKS: ZelleBank[] = [
+  {
+    id: 'chase',
+    name: 'Chase',
+    shortName: 'Chase',
+    color: '#117ACA',
+    iconLetter: 'C',
+    iosScheme: 'chase',
+    appStoreId: '298867247',
+    androidPackage: 'com.chase.sig.android',
+  },
+  {
+    id: 'bofa',
+    name: 'Bank of America',
+    shortName: 'BofA',
+    color: '#012169',
+    iconLetter: 'B',
+    iosScheme: 'bofa',
+    appStoreId: '284847138',
+    androidPackage: 'com.infonow.bofa',
+  },
+  {
+    id: 'wellsfargo',
+    name: 'Wells Fargo',
+    shortName: 'Wells Fargo',
+    color: '#D71E28',
+    iconLetter: 'W',
+    iosScheme: 'wellsfargo',
+    appStoreId: '311548617',
+    androidPackage: 'com.wf.wellsfargomobile',
+  },
+  {
+    id: 'usbank',
+    name: 'U.S. Bank',
+    shortName: 'US Bank',
+    color: '#002855',
+    iconLetter: 'U',
+    iosScheme: 'usbank',
+    appStoreId: '401088882',
+    androidPackage: 'com.usbank.mobilebanking',
+  },
+  {
+    id: 'citi',
+    name: 'Citibank',
+    shortName: 'Citi',
+    color: '#003B70',
+    iconLetter: 'C',
+    iosScheme: 'citi',
+    appStoreId: '301724680',
+    androidPackage: 'com.citi.citimobile',
+  },
+  {
+    id: 'capitalone',
+    name: 'Capital One',
+    shortName: 'Cap One',
+    color: '#004977',
+    iconLetter: 'C',
+    iosScheme: 'capitalone',
+    appStoreId: '407558537',
+    androidPackage: 'com.konylabs.capitalone',
+  },
+  {
+    id: 'pnc',
+    name: 'PNC Bank',
+    shortName: 'PNC',
+    color: '#FF6600',
+    iconLetter: 'P',
+    iosScheme: 'pncmobile',
+    appStoreId: '303113127',
+    androidPackage: 'com.pnc.ecommerce.mobile',
+  },
+  {
+    id: 'td',
+    name: 'TD Bank',
+    shortName: 'TD',
+    color: '#34A853',
+    iconLetter: 'T',
+    iosScheme: 'td',
+    appStoreId: '463674454',
+    androidPackage: 'com.tdbank',
+  },
+];
+
+/**
+ * Get the full bank registry for the bank picker UI.
+ */
+export const getZelleBanks = (): ZelleBank[] => ZELLE_BANKS;
+
+/**
+ * Get a bank by ID.
+ */
+export const getZelleBankById = (bankId: string): ZelleBank | undefined =>
+  ZELLE_BANKS.find(b => b.id === bankId);
+
+/**
+ * Opens the user's specific banking app for Zelle payment.
+ * Copies the host's Zelle contact to clipboard first.
+ * Returns true if the bank app was opened successfully.
+ */
+export const openZelleViaBank = async (
+  bank: ZelleBank,
+  zelleContact: string,
+  amount: number,
+  recipientName: string
+): Promise<boolean> => {
+  const formattedAmount = amount.toFixed(2);
+
+  // Copy host's Zelle contact to clipboard
+  Clipboard.setString(zelleContact);
+
+  const schemeUrl = `${bank.iosScheme}://`;
+
+  console.log(`[PaymentLinks] Zelle via ${bank.name}: trying ${schemeUrl}`);
+
+  try {
+    const canOpen = await Linking.canOpenURL(schemeUrl);
+    console.log(`[PaymentLinks] ${bank.name} canOpen:`, canOpen);
+
+    if (canOpen) {
+      await Linking.openURL(schemeUrl);
+      return true;
+    } else {
+      // Bank app not installed — offer to download
+      const appStoreUrl = Platform.OS === 'ios'
+        ? `https://apps.apple.com/us/app/id${bank.appStoreId}`
+        : `https://play.google.com/store/apps/details?id=${bank.androidPackage}`;
+
+      Alert.alert(
+        `${bank.name} Not Installed`,
+        `Download ${bank.name} to pay $${formattedAmount} via Zelle to ${recipientName}.\n\nZelle contact copied to clipboard.`,
+        [
+          {
+            text: `Get ${bank.shortName}`,
+            onPress: () => Linking.openURL(appStoreUrl),
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return false;
+    }
+  } catch (error) {
+    console.error(`[PaymentLinks] ${bank.name} error:`, error);
+    Alert.alert(
+      'Cannot Open Bank App',
+      `Please open ${bank.name} and send $${formattedAmount} via Zelle to ${zelleContact}.`,
+      [{ text: 'OK' }]
+    );
+    return false;
+  }
+};
+
+/**
+ * Legacy Zelle opener — tries zelle:// scheme, then shows generic instructions.
+ * Used by checkout.tsx and as fallback.
+ */
 export const openZelle = async (
   zelleContact: string,
   amount: number,
@@ -236,9 +405,6 @@ export const openZelle = async (
   // Copy handle to clipboard first
   Clipboard.setString(zelleContact);
   
-  // Try to open Zelle app directly
-  // Zelle's scheme is not publicly documented
-  // Some banks have their own deep links
   const zelleScheme = 'zelle://';
   
   try {
@@ -246,15 +412,12 @@ export const openZelle = async (
     
     if (canOpen) {
       await Linking.openURL(zelleScheme);
-      // Show instructions since Zelle can't pre-fill
       Alert.alert(
         'Zelle Opened',
         `Send $${formattedAmount} to:\n${zelleContact}\n(${recipientName})\n\n(Contact info copied to clipboard)`,
         [{ text: 'Got it' }]
       );
     } else {
-      // Zelle not installed as standalone — 
-      // most people use it through their bank app
       Alert.alert(
         'Pay via Zelle',
         `Contact info copied to clipboard: ${zelleContact}\n\nOpen your bank's app and use Zelle to send $${formattedAmount} to:\n👤 ${recipientName}`,
