@@ -7,10 +7,12 @@ Supports optional location-based filtering via lat/lng/radius query params.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request, Depends
 from pydantic import BaseModel
 
 from app.services.scraper import scrape_all_deals, get_cache_status
+from app.core.auth import get_current_user
+from app.core.security import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +90,8 @@ async def get_deals(
 
 
 @router.get("/deals/refresh")
-async def refresh_deals():
+@limiter.limit("5/minute")
+async def refresh_deals(request: Request, user: dict = Depends(get_current_user)):
     """
     Force a fresh scrape of all deal sources, bypassing the cache.
     Useful for admin/debug or manual refresh.

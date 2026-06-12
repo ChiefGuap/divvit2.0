@@ -12,10 +12,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api.endpoints import receipts
 from app.api.endpoints import deals
 from app.services.scraper import scrape_all_deals, get_cache_status
+from app.core.security import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -87,12 +90,18 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 # Add Security Headers Middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
-
+# Wire up rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=[
+        "http://localhost:8081",       # Expo dev (Metro)
+        "http://localhost:19006",      # Expo web
+        "https://divvit.app",          # Production (future)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

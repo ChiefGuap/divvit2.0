@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     View, Text, TouchableOpacity, ScrollView, Alert,
-    ActivityIndicator, Platform, Dimensions, Linking, Modal,
+    ActivityIndicator, Platform, Dimensions, Linking, Modal, Clipboard,
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -61,7 +61,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TILE_GAP = 12;
 const TILE_SIZE = (SCREEN_WIDTH - 40 - TILE_GAP) / 2;
 
-type ProfileMap = Record<string, { venmo_handle: string | null; cashapp_handle: string | null }>;
+type ProfileMap = Record<string, { venmo_handle: string | null; cashapp_handle: string | null; zelle_handle: string | null }>;
 
 export default function PaymentScreen() {
     const router = useRouter();
@@ -86,6 +86,11 @@ export default function PaymentScreen() {
     const ZELLE_STORAGE_KEY = '@divvit_zelle_bank';
     const [savedZelleBank, setSavedZelleBank] = useState<ZelleBank | null>(null);
     const [showBankPicker, setShowBankPicker] = useState(false);
+    const [zelleRequestParams, setZelleRequestParams] = useState<{
+        contact: string;
+        amount: number;
+        name: string;
+    } | null>(null);
     const hostId = bill?.host_id;
     const isHost = user?.id === hostId;
 
@@ -213,7 +218,7 @@ export default function PaymentScreen() {
                 if (userIds.length > 0) {
                     const { data: profiles } = await supabase
                         .from('profiles')
-                        .select('id, venmo_handle, cashapp_handle')
+                        .select('id, venmo_handle, cashapp_handle, zelle_handle')
                         .in('id', userIds);
                     if (profiles) {
                         const map: ProfileMap = {};
@@ -390,24 +395,30 @@ export default function PaymentScreen() {
         setShowBankPicker(false);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        // Open bank app immediately after selection
-        const opened = await openZelleViaBank(
-            bank,
-            hostProfile!.zelle_handle!,
-            myAmount,
-            hostParticipant?.name || 'Host'
-        );
-        if (opened) {
-            setTimeout(() => {
-                Alert.alert(
-                    'Payment Complete?',
-                    `Did you send $${myAmount.toFixed(2)} via Zelle in ${bank.name}?`,
-                    [
-                        { text: 'Yes, I paid!', onPress: () => doMarkAsSent('zelle') },
-                        { text: 'Not yet', style: 'cancel' },
-                    ]
-                );
-            }, 2000);
+        if (zelleRequestParams) {
+            const { contact, amount, name } = zelleRequestParams;
+            setZelleRequestParams(null); // Clear params
+            await openZelleViaBank(bank, contact, amount, name);
+        } else {
+            // Open bank app immediately after selection (paying guest flow)
+            const opened = await openZelleViaBank(
+                bank,
+                hostProfile!.zelle_handle!,
+                myAmount,
+                hostParticipant?.name || 'Host'
+            );
+            if (opened) {
+                setTimeout(() => {
+                    Alert.alert(
+                        'Payment Complete?',
+                        `Did you send $${myAmount.toFixed(2)} via Zelle in ${bank.name}?`,
+                        [
+                            { text: 'Yes, I paid!', onPress: () => doMarkAsSent('zelle') },
+                            { text: 'Not yet', style: 'cancel' },
+                        ]
+                    );
+                }, 2000);
+            }
         }
     };
 
@@ -541,6 +552,64 @@ export default function PaymentScreen() {
                     return;
                 }
                 await requestCashApp(cashapp, amount);
+            },
+        });
+
+        alertOptions.push({
+            text: '🏦 Request via Zelle',
+            onPress: async () => {
+                const zelleContact = profile?.zelle_handle;
+                if (!zelleContact) {
+                    Alert.alert(
+                        'No Zelle',
+                        `${participant.name} hasn't added their Zelle email or phone yet.`
+                    );
+                    return;
+                }
+                // Copy guest's Zelle contact to clipboard for the host
+                Clipboard.setString(zelleContact);
+                if (savedZelleBank) {
+                    // Host has a saved bank — open it directly
+                    Alert.alert(
+                        'Request via Zelle',
+                        `${participant.name}'s Zelle contact copied to clipboard.\n\nOpen ${savedZelleBank.name} and request $${amount.toFixed(2)} from:\n${zelleContact}`,
+                        [
+                            { text: `Open ${savedZelleBank.shortName}`, onPress: () => openZelleViaBank(savedZelleBank, zelleContact, amount, participant.name) },
+                            {
+                                text: 'Change Bank',
+                                onPress: () => {
+                                    setZelleRequestParams({
+                                        contact: zelleContact,
+                                        amount: amount,
+                                        name: participant.name,
+                                    });
+                                    setShowBankPicker(true);
+                                }
+                            },
+                            { text: 'Cancel', style: 'cancel' },
+                        ]
+                    );
+                } else {
+                    // No saved bank — show picker
+                    Alert.alert(
+                        'Request via Zelle',
+                        `${participant.name}'s Zelle contact copied to clipboard: ${zelleContact}\n\nOpen your bank app and request $${amount.toFixed(2)} via Zelle.`,
+                        [
+                            {
+                                text: 'Select Bank',
+                                onPress: () => {
+                                    setZelleRequestParams({
+                                        contact: zelleContact,
+                                        amount: amount,
+                                        name: participant.name,
+                                    });
+                                    setShowBankPicker(true);
+                                }
+                            },
+                            { text: 'Cancel', style: 'cancel' },
+                        ]
+                    );
+                }
             },
         });
 
@@ -768,11 +837,17 @@ export default function PaymentScreen() {
                 visible={showBankPicker}
                 transparent
                 animationType="slide"
-                onRequestClose={() => setShowBankPicker(false)}
+                onRequestClose={() => {
+                    setShowBankPicker(false);
+                    setZelleRequestParams(null);
+                }}
             >
                 <TouchableOpacity
                     activeOpacity={1}
-                    onPress={() => setShowBankPicker(false)}
+                    onPress={() => {
+                        setShowBankPicker(false);
+                        setZelleRequestParams(null);
+                    }}
                     style={{
                         flex: 1,
                         backgroundColor: 'rgba(0,0,0,0.45)',
@@ -887,7 +962,10 @@ export default function PaymentScreen() {
 
                             {/* Cancel */}
                             <TouchableOpacity
-                                onPress={() => setShowBankPicker(false)}
+                                onPress={() => {
+                                    setShowBankPicker(false);
+                                    setZelleRequestParams(null);
+                                }}
                                 activeOpacity={0.7}
                                 style={{
                                     alignItems: 'center', marginTop: 20,

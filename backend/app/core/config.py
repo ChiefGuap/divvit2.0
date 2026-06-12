@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     # API Keys
     gemini_api_key: str = ""
+    supabase_jwt_secret: str = ""
 
     # Application settings
     app_name: str = "Divvit Backend"
