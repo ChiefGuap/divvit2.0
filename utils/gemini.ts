@@ -1,11 +1,21 @@
 /**
  * Receipt parsing via Python backend on Cloud Run.
  * Uploads the receipt image to the backend which uses Gemini for AI processing.
+ * Authenticated via Supabase JWT.
  */
+
+import { supabase } from '../lib/supabase';
 
 export const parseReceiptWithGemini = async (imageUri: string) => {
     console.log('[Gemini] Starting Cloud Scan via Python Backend...');
     console.log('[Gemini] Image URI:', imageUri?.substring(0, 80));
+
+    // Get the current user's JWT for authentication
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+        console.error('[Gemini] No authenticated session — cannot scan');
+        throw new Error('You must be logged in to scan receipts.');
+    }
 
     const formData = new FormData();
     // React Native expects this specific object format for file uploads
@@ -40,7 +50,9 @@ export const parseReceiptWithGemini = async (imageUri: string) => {
             method: 'POST',
             body: formData,
             signal: controller.signal,
-            // Let React Native set Content-Type: multipart/form-data; boundary=...
+            headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+            },
         });
 
         const elapsed = Date.now() - startTime;

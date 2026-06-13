@@ -261,7 +261,7 @@ export default function PartyScreen() {
                             bill_id: billId,
                             name: item.name || '',
                             price: Number(item.price) || 0,
-                            quantity: Number(item.quantity) || 1,
+                            quantity: 1, // Force quantity to 1 to align with line total representation
                         }));
                         await fetch(`${supabaseUrl}/rest/v1/bill_items`, {
                             method: 'POST',

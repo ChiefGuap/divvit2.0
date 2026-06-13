@@ -12,3 +12,4 @@ lxml>=5.0.0
 supabase>=2.0.0
 APScheduler>=3.10.0
 httpx>=0.25.0
+PyJWT>=2.8.0

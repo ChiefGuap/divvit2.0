@@ -3,13 +3,18 @@ Receipt scanning endpoints.
 Handles file uploads and delegates to the Gemini service for AI processing.
 """
 
-from fastapi import APIRouter, File, UploadFile, Request, HTTPException
+from fastapi import APIRouter, File, UploadFile, Request, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 
 from app.services.gemini import GeminiService
+from app.core.auth import get_current_user
+from app.core.security import limiter
 
 router = APIRouter()
+
+# 10 MB file size limit
+MAX_FILE_SIZE = 10 * 1024 * 1024
 
 
 class ReceiptItem(BaseModel):
@@ -29,9 +34,15 @@ class ScanResponse(BaseModel):
 
 
 @router.post("/scan")
-async def scan_receipt(request: Request, file: UploadFile = File(...)):
+@limiter.limit("10/minute")
+async def scan_receipt(
+    request: Request,
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
     """
     Scan a receipt image and extract structured data.
+    Requires authentication (Supabase JWT).
 
     Args:
         file: Uploaded receipt image file (JPEG, PNG, etc.)
@@ -39,7 +50,8 @@ async def scan_receipt(request: Request, file: UploadFile = File(...)):
     Returns:
         Parsed receipt data with items and totals
     """
-    print(f"[Backend] Received scan request — file: {file.filename!r}, type: {file.content_type!r}")
+    user_id = user.get("sub", "unknown")
+    print(f"[Backend] Scan request from user {user_id} — file: {file.filename!r}, type: {file.content_type!r}")
 
     # Validate file type
     allowed_types = ["image/jpeg", "image/png", "image/webp", "image/heic"]
@@ -53,6 +65,15 @@ async def scan_receipt(request: Request, file: UploadFile = File(...)):
     try:
         # Read file contents
         contents = await file.read()
+
+        # Enforce file size limit
+        if len(contents) > MAX_FILE_SIZE:
+            print(f"[Backend] Rejected — file too large: {len(contents)} bytes")
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large ({len(contents) / 1024 / 1024:.1f} MB). Maximum size is 10 MB."
+            )
+
         print(f"[Backend] File read — {len(contents)} bytes. Calling Gemini...")
 
         # Process with Gemini
@@ -62,6 +83,8 @@ async def scan_receipt(request: Request, file: UploadFile = File(...)):
         print(f"[Backend] Gemini success — {len(result.get('items', []))} items found")
         return result
 
+    except HTTPException:
+        raise  # Re-raise our own HTTP exceptions
     except ValueError as e:
         print(f"[Backend] ValueError: {e}")
         raise HTTPException(status_code=400, detail=str(e))

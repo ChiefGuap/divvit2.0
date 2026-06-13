@@ -163,7 +163,7 @@ export default function CaptureScreen() {
                 bill_id: billId,
                 name: item.name || '',
                 price: Number(item.price) || 0,
-                quantity: Number(item.quantity) || 1,
+                quantity: 1, // Ignore parsed quantity to avoid double-multiplication of line totals
             }));
 
             if (itemsPayload.length > 0) {

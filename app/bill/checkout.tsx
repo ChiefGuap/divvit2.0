@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Modal, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Modal, Alert, Platform } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
-import { openVenmo, openCashApp } from '../../utils/payments';
+import { openVenmo, openCashApp, openZelle, openAppleCash } from '../../utils/payments';
 
 // --- Types ---
 type User = {
@@ -23,11 +23,13 @@ type BillItem = {
     share_of_tip: number;
 };
 
-type PaymentMethod = 'venmo' | 'cashapp' | 'cash';
+type PaymentMethod = 'venmo' | 'cashapp' | 'zelle' | 'applecash' | 'cash';
 
 type HostPaymentMethods = {
     venmo_handle: string | null;
     cashapp_handle: string | null;
+    zelle_handle: string | null;
+    apple_pay_handle: string | null;
 };
 
 export default function CheckoutScreen() {
@@ -96,6 +98,8 @@ export default function CheckoutScreen() {
     const [hostPaymentMethods, setHostPaymentMethods] = useState<HostPaymentMethods>({
         venmo_handle: null,
         cashapp_handle: null,
+        zelle_handle: null,
+        apple_pay_handle: null,
     });
 
     // Use fetched host ID, fallback to current user for backwards compatibility
@@ -133,7 +137,7 @@ export default function CheckoutScreen() {
 
                 // Now fetch the host's payment methods
                 const response = await fetch(
-                    `${supabaseUrl}/rest/v1/profiles?id=eq.${actualHostId}&select=venmo_handle,cashapp_handle`,
+                    `${supabaseUrl}/rest/v1/profiles?id=eq.${actualHostId}&select=venmo_handle,cashapp_handle,zelle_handle,apple_pay_handle`,
                     {
                         headers: {
                             'apikey': supabaseKey!,
@@ -149,6 +153,8 @@ export default function CheckoutScreen() {
                         setHostPaymentMethods({
                             venmo_handle: profiles[0].venmo_handle || null,
                             cashapp_handle: profiles[0].cashapp_handle || null,
+                            zelle_handle: profiles[0].zelle_handle || null,
+                            apple_pay_handle: profiles[0].apple_pay_handle || null,
                         });
                     }
                 }
@@ -171,11 +177,13 @@ export default function CheckoutScreen() {
         // Check if host has any payment methods configured
         const hasVenmo = !!hostPaymentMethods.venmo_handle;
         const hasCashApp = !!hostPaymentMethods.cashapp_handle;
+        const hasZelle = !!hostPaymentMethods.zelle_handle;
+        const hasApplePay = !!hostPaymentMethods.apple_pay_handle;
 
-        if (!hasVenmo && !hasCashApp) {
+        if (!hasVenmo && !hasCashApp && !hasZelle && !hasApplePay) {
             Alert.alert(
                 'Payment Methods Not Set Up',
-                'The host has not set up any payment methods yet. They can add Venmo or Cash App in their Profile.',
+                'The host has not set up any payment methods yet. They can add Venmo, Cash App, Zelle, or Apple Cash in their Profile.',
                 [{ text: 'OK' }]
             );
             return;
@@ -195,6 +203,10 @@ export default function CheckoutScreen() {
             await openVenmo(hostPaymentMethods.venmo_handle, amountOwed, note);
         } else if (method === 'cashapp' && hostPaymentMethods.cashapp_handle) {
             await openCashApp(hostPaymentMethods.cashapp_handle, amountOwed);
+        } else if (method === 'zelle' && hostPaymentMethods.zelle_handle) {
+            await openZelle(hostPaymentMethods.zelle_handle, amountOwed, 'Host');
+        } else if (method === 'applecash' && hostPaymentMethods.apple_pay_handle) {
+            await openAppleCash(hostPaymentMethods.apple_pay_handle, amountOwed, note);
         }
 
         // Mark as paid (for hosting flow - user marks guest as paid)
@@ -487,6 +499,32 @@ export default function CheckoutScreen() {
                                     <Text className="text-2xl mr-4">💵</Text>
                                     <Text className="font-heading text-lg font-bold text-divvit-text flex-1">
                                         Received via Cash App
+                                    </Text>
+                                    <ArrowRight size={20} color="#9CA3AF" />
+                                </TouchableOpacity>
+                            )}
+                            {hostPaymentMethods.zelle_handle && (
+                                <TouchableOpacity
+                                    onPress={() => handlePaymentMethodSelect('zelle')}
+                                    activeOpacity={0.7}
+                                    className="flex-row items-center py-4 px-4 mb-3 rounded-2xl bg-gray-50 border border-gray-100"
+                                >
+                                    <Text className="text-2xl mr-4">🏦</Text>
+                                    <Text className="font-heading text-lg font-bold text-divvit-text flex-1">
+                                        Received via Zelle
+                                    </Text>
+                                    <ArrowRight size={20} color="#9CA3AF" />
+                                </TouchableOpacity>
+                            )}
+                            {Platform.OS === 'ios' && hostPaymentMethods.apple_pay_handle && (
+                                <TouchableOpacity
+                                    onPress={() => handlePaymentMethodSelect('applecash')}
+                                    activeOpacity={0.7}
+                                    className="flex-row items-center py-4 px-4 mb-3 rounded-2xl bg-gray-50 border border-gray-100"
+                                >
+                                    <Text className="text-2xl mr-4">🍎</Text>
+                                    <Text className="font-heading text-lg font-bold text-divvit-text flex-1">
+                                        Received via Apple Cash
                                     </Text>
                                     <ArrowRight size={20} color="#9CA3AF" />
                                 </TouchableOpacity>
