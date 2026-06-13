@@ -70,6 +70,8 @@ Rules:
 - If a value is not found, use null
 - Include all line items from the receipt
 - Be accurate with the prices and names
+- "price" must be the total price for the line item (e.g. if the receipt says "3 Hako Tonkatsu $44.85", you should return "price": 44.85 and "quantity": 1)
+- Always return "quantity" as 1 for every item
 """
 
         # Retry chain — only use gemini-2.5-flash. If it returns 503 (high demand) or 429
