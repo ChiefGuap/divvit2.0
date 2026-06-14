@@ -7,6 +7,7 @@ import {
   Dimensions,
   Image,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -18,16 +19,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-
-// Import mock data to determine rewards points
-import {
-  mockDailyChallenge,
-  mockDailyChallenges,
-  mockStandardChallenges,
-  mockGroupChallenge,
-  mockGroupChallenges,
-  mockReferralChallenge,
-} from '../../data/mockChallenges';
+import { supabase } from '../../lib/supabase';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -117,39 +109,115 @@ export default function ReceiptProcessingScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  // Lookup challenge points for success route parameter
-  const getChallengePoints = (id: string): number => {
-    if (!id) return 25; // default fallback points
-    if (mockDailyChallenge.id === id) return mockDailyChallenge.points;
-    if (mockGroupChallenge.id === id) return mockGroupChallenge.points;
-    if (mockReferralChallenge.id === id) return mockReferralChallenge.points;
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    const daily = mockDailyChallenges.find((c) => c.id === id);
-    if (daily) return daily.points;
-
-    const std = mockStandardChallenges.find((c) => c.id === id);
-    if (std) return std.points;
-
-    const grp = mockGroupChallenges.find((c) => c.id === id);
-    if (grp) return grp.points;
-
-    return 25;
-  };
-
-  const pointsAwarded = getChallengePoints(idStr);
-
-  // Simulated validation delay (3.5 seconds)
   useEffect(() => {
-    const validationTimer = setTimeout(() => {
-      // ON SUCCESS: router.replace to the Challenge Complete screen
-      router.replace({
-        pathname: '/challenge/complete',
-        params: { challengeId: idStr, points: pointsAwarded },
-      });
-    }, 3500);
+    let active = true;
 
-    return () => clearTimeout(validationTimer);
-  }, [idStr, pointsAwarded]);
+    const performVerification = async () => {
+      try {
+        if (!idStr || !imageUriDecoded) {
+          throw new Error('Missing challenge or receipt photo.');
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('You must be logged in to claim points.');
+        }
+
+        const formData = new FormData();
+        formData.append('file', {
+          uri: imageUriDecoded,
+          type: 'image/jpeg',
+          name: 'receipt.jpg',
+        } as any);
+
+        const apiBase = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+        const url = `${apiBase}/api/v1/challenges/verify?challengeId=${idStr}`;
+
+        console.log('[Processing] Posting verification to:', url);
+
+        const response = await fetch(url, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!active) return;
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `Verification failed with status ${response.status}`);
+        }
+
+        const resData = await response.json();
+        console.log('[Processing] Verification response:', resData);
+
+        if (resData.passed) {
+          router.replace({
+            pathname: '/challenge/complete',
+            params: { 
+              challengeId: idStr, 
+              points: resData.points_awarded ?? 25,
+              newBalance: resData.new_balance,
+              streak: resData.streak,
+              challengeTitle: resData.challenge_title
+            },
+          });
+        } else {
+          const reasons = resData.reasons || ['Receipt does not match the challenge criteria.'];
+          setErrorMsg(reasons.join('\n'));
+        }
+      } catch (err: any) {
+        console.error('[Processing] Verification error:', err);
+        if (active) {
+          setErrorMsg(err.message || 'Network communication error.');
+        }
+      }
+    };
+
+    performVerification();
+
+    return () => {
+      active = false;
+    };
+  }, [idStr, imageUriDecoded]);
+
+  if (errorMsg) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar barStyle="dark-content" />
+
+        <View style={styles.content}>
+          <View style={styles.errorIconBg}>
+            <MaterialIcons name="error-outline" size={64} color="#b41340" />
+          </View>
+          
+          <Text style={styles.headline}>Receipt didn't qualify</Text>
+          
+          <View style={styles.errorReasonsCard}>
+            <Text style={styles.errorReasonsTitle}>REASONS:</Text>
+            <Text style={styles.errorReasonsText}>{errorMsg}</Text>
+          </View>
+        </View>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            onPress={() => {
+              router.replace('/(tabs)/challenges');
+            }}
+            activeOpacity={0.8}
+            style={styles.retryButton}
+          >
+            <Text style={styles.retryButtonText}>BACK TO CHALLENGES</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Animated styles
   const spinStyle = useAnimatedStyle(() => ({
@@ -405,5 +473,64 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Manrope',
     fontWeight: '500',
+  },
+  errorIconBg: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: 'rgba(180, 19, 64, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 32,
+    borderWidth: 1.5,
+    borderColor: 'rgba(180, 19, 64, 0.2)',
+  },
+  errorReasonsCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 20,
+    width: '100%',
+    maxWidth: 320,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 19, 64, 0.1)',
+    shadowColor: '#b41340',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  errorReasonsTitle: {
+    fontSize: 10,
+    fontFamily: 'Outfit_700Bold',
+    color: '#b41340',
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  errorReasonsText: {
+    fontSize: 14,
+    fontFamily: 'Manrope_500Medium',
+    color: '#64547d',
+    lineHeight: 20,
+  },
+  retryButton: {
+    width: '100%',
+    maxWidth: 240,
+    backgroundColor: '#6346cd',
+    paddingVertical: 16,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#6346cd',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 12,
+    letterSpacing: 1.8,
   },
 });

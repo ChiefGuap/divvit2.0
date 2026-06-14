@@ -27,15 +27,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 
-// Import mock data to resolve challenge brand names
-import {
-  mockDailyChallenge,
-  mockDailyChallenges,
-  mockStandardChallenges,
-  mockGroupChallenge,
-  mockGroupChallenges,
-  mockReferralChallenge,
-} from '../../data/mockChallenges';
+// No mock imports required
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -94,8 +86,9 @@ const CornerBracket = ({ position }: { position: 'topLeft' | 'topRight' | 'botto
 export default function ChallengeScanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { challengeId } = useLocalSearchParams();
+  const { challengeId, brandName: paramBrandName } = useLocalSearchParams();
   const idStr = Array.isArray(challengeId) ? challengeId[0] : (challengeId || '');
+  const brandName = Array.isArray(paramBrandName) ? paramBrandName[0] : (paramBrandName || 'Brand');
 
   const [permission, requestPermission] = useCameraPermissions();
   const [flash, setFlash] = useState<'off' | 'on'>('off');
@@ -128,28 +121,6 @@ export default function ChallengeScanScreen() {
       requestPermission();
     }
   }, [permission]);
-
-  // Lookup brand based on challengeId
-  const getChallenge = (id: string) => {
-    if (!id) return null;
-    if (mockDailyChallenge.id === id) return mockDailyChallenge;
-    if (mockGroupChallenge.id === id) return mockGroupChallenge;
-    if (mockReferralChallenge.id === id) return mockReferralChallenge;
-
-    const daily = mockDailyChallenges.find((c) => c.id === id);
-    if (daily) return daily;
-
-    const std = mockStandardChallenges.find((c) => c.id === id);
-    if (std) return std;
-
-    const grp = mockGroupChallenges.find((c) => c.id === id);
-    if (grp) return grp;
-
-    return null;
-  };
-
-  const challenge = getChallenge(idStr);
-  const brandName = challenge?.brand || challenge?.title || 'Brand';
 
   const toggleFlash = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

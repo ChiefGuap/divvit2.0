@@ -139,3 +139,23 @@ export const awardUsePromotion = async (
     if (error) throw error;
     return data as AwardResult;
 };
+
+// ─── USER POINTS TABLE ───────────────────────────────────────────────────────
+
+export interface DbUserPoints {
+    user_id: string;
+    total_points: number;
+    current_streak_days: number;
+    last_completed_on: string | null;
+}
+
+export const fetchUserPointsTable = async (userId: string): Promise<DbUserPoints | null> => {
+    const { data, error } = await supabase
+        .from('user_points')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (error) throw error;
+    return data;
+};
+

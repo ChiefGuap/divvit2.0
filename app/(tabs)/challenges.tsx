@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import TabHeader from '@/components/TabHeader';
@@ -10,11 +10,8 @@ import DailyChallengeCarousel from '../../components/challenges/DailyChallengeCa
 import ChallengeRow from '../../components/challenges/ChallengeRow';
 import GroupChallengeCard from '../../components/challenges/GroupChallengeCard';
 import ReferralCard from '../../components/challenges/ReferralCard';
-import {
-  mockDailyChallenges,
-  mockStandardChallenges,
-  mockGroupChallenges,
-} from '../../data/mockChallenges';
+import { getActiveChallenges } from '../../services/challengeService';
+import { Challenge, GroupChallenge } from '../../types/challenges';
 
 const ChallengesComingSoon = () => {
   return (
@@ -45,23 +42,54 @@ export default function ChallengesScreen() {
   const { points, refresh } = useRewards();
   const { user } = useAuth();
 
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchChallenges = useCallback(async () => {
+    try {
+      const data = await getActiveChallenges();
+      setChallenges(data);
+    } catch (e) {
+      console.error('[ChallengesScreen] Error loading challenges:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const IS_PRODUCTION = !__DEV__;
 
   if (IS_PRODUCTION) {
     return <ChallengesComingSoon />;
   }
 
-  // Refresh points when screen comes into focus
+  // Refresh points and challenges when screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      fetchChallenges();
       if (user?.id) {
         refresh();
       }
-    }, [user?.id, refresh])
+    }, [user?.id, refresh, fetchChallenges])
   );
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchChallenges(),
+      user?.id ? refresh() : Promise.resolve(),
+    ]);
+    setRefreshing(false);
+  }, [user?.id, refresh, fetchChallenges]);
+
+  const dailyChallenges = challenges.filter((c) => c.kind === 'daily');
+  const standardChallenges = challenges.filter((c) => c.kind === 'standard');
+  const groupChallenges = challenges.filter((c) => c.kind === 'group') as GroupChallenge[];
+
   // Connect useCountdown to Daily Challenge endsAt
-  const dailyCountdown = useCountdown(mockDailyChallenges[0].endsAt);
+  const dailyCountdown = useCountdown(
+    dailyChallenges[0]?.endsAt || new Date().toISOString()
+  );
 
   const handleViewAllStandard = () => {
     console.log('TODO: View All standard challenges pressed');
@@ -72,54 +100,73 @@ export default function ChallengesScreen() {
       {/* TopAppBar */}
       <TabHeader points={points ?? 0} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* ── Daily Challenge Hero ─────────────────────── */}
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>Daily Challenge</Text>
-            <View style={styles.countdownPill}>
-              <Text style={styles.countdownText}>
-                ENDS IN: {dailyCountdown.formatted}
-              </Text>
+      {isLoading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#6346cd" />
+        </View>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6346cd" />
+          }
+        >
+          {/* ── Daily Challenge Hero ─────────────────────── */}
+          {dailyChallenges.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>Daily Challenge</Text>
+                  <View style={styles.countdownPill}>
+                    <Text style={styles.countdownText}>
+                      ENDS IN: {dailyCountdown.formatted}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <DailyChallengeCarousel data={dailyChallenges} />
+            </>
+          )}
+
+          {/* ── Divvit Challenges ────────────────────────── */}
+          {standardChallenges.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>Divvit Challenges</Text>
+                  <Text style={styles.sectionSubtitle}>EARN MORE POINTS!</Text>
+                </View>
+                <Text style={styles.viewAllLink} onPress={handleViewAllStandard}>
+                  View All
+                </Text>
+              </View>
+
+              <View style={styles.challengesList}>
+                {standardChallenges.map((item) => (
+                  <ChallengeRow key={item.id} item={item} />
+                ))}
+              </View>
+            </>
+          )}
+
+          {/* ── Group Challenges ─────────────────────────── */}
+          {groupChallenges.length > 0 && (
+            <View style={styles.groupSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Group Challenges</Text>
+              </View>
+              <GroupChallengeCard data={groupChallenges} />
             </View>
+          )}
+
+          {/* ── Refer a Friend ──────────────────────────── */}
+          <View style={styles.referralWrap}>
+            <ReferralCard />
           </View>
-        </View>
-
-        <DailyChallengeCarousel data={mockDailyChallenges} />
-
-        {/* ── Divvit Challenges ────────────────────────── */}
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>Divvit Challenges</Text>
-            <Text style={styles.sectionSubtitle}>EARN MORE POINTS!</Text>
-          </View>
-          <Text style={styles.viewAllLink} onPress={handleViewAllStandard}>
-            View All
-          </Text>
-        </View>
-
-        <View style={styles.challengesList}>
-          {mockStandardChallenges.map((item) => (
-            <ChallengeRow key={item.id} item={item} />
-          ))}
-        </View>
-
-        {/* ── Group Challenges ─────────────────────────── */}
-        <View style={styles.groupSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Group Challenges</Text>
-          </View>
-          <GroupChallengeCard data={mockGroupChallenges} />
-        </View>
-
-        {/* ── Refer a Friend ──────────────────────────── */}
-        <View style={styles.referralWrap}>
-          <ReferralCard />
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

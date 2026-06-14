@@ -18,6 +18,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.api.endpoints import receipts
 from app.api.endpoints import deals
+from app.api.endpoints import challenges
 from app.services.scraper import scrape_all_deals, get_cache_status
 from app.services.nudge_service import process_nudges
 from app.core.security import limiter
@@ -124,6 +125,7 @@ app.add_middleware(
 # Include routers
 app.include_router(receipts.router, prefix="/api/v1", tags=["receipts"])
 app.include_router(deals.router, prefix="/api/v1", tags=["deals"])
+app.include_router(challenges.router, prefix="/api/v1/challenges", tags=["challenges"])
 
 
 @app.get("/")

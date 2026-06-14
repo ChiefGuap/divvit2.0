@@ -1,20 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, Platform, ActivityIndicator } from 'react-native';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { useCountdown } from '../../hooks/useCountdown';
-import {
-  mockDailyChallenge,
-  mockDailyChallenges, // Also import mockDailyChallenges, mockGroupChallenges to support dynamic lookup
-  mockStandardChallenges,
-  mockGroupChallenge,
-  mockGroupChallenges,
-  mockReferralChallenge,
-} from '../../data/mockChallenges';
+import { getChallengeById } from '../../services/challengeService';
 import { Challenge } from '../../types/challenges'; // Import Challenge type
 import PrimaryButton from '../../components/challenges/PrimaryButton';
 import HowItWorksStep from '../../components/challenges/HowItWorksStep';
@@ -26,20 +19,25 @@ export default function ChallengeDetailsScreen() {
   const { id } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
 
-  const getChallenge = (challengeId: string) => {
-    if (mockDailyChallenge.id === challengeId) return mockDailyChallenge;
-    if (mockGroupChallenge.id === challengeId) return mockGroupChallenge;
-    if (mockReferralChallenge.id === challengeId) return mockReferralChallenge;
-    const std = mockStandardChallenges.find((c) => c.id === challengeId);
-    if (std) return std;
-    const daily = mockDailyChallenges.find((c) => c.id === challengeId);
-    if (daily) return daily;
-    const group = mockGroupChallenges.find((c) => c.id === challengeId);
-    if (group) return group;
-    return null;
-  };
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const challenge = getChallenge(id as string);
+  useEffect(() => {
+    const loadChallenge = async () => {
+      try {
+        setIsLoading(true);
+        if (id) {
+          const data = await getChallengeById(id as string);
+          setChallenge(data);
+        }
+      } catch (err) {
+        console.warn('[ChallengeDetails] Failed to load challenge:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadChallenge();
+  }, [id]);
 
   const getHowItWorksSteps = (currentChallenge: Challenge) => {
     const brand = currentChallenge.brand || currentChallenge.title;
@@ -74,6 +72,14 @@ export default function ChallengeDetailsScreen() {
   // Dynamic ticking countdown
   const countdown = useCountdown(challenge?.endsAt || new Date().toISOString());
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <ActivityIndicator size="large" color="#5f39dd" />
+      </SafeAreaView>
+    );
+  }
+
   if (!challenge) {
     return (
       <SafeAreaView style={styles.errorContainer}>
@@ -96,7 +102,10 @@ export default function ChallengeDetailsScreen() {
   const handleScanReceipt = () => {
     router.push({
       pathname: '/challenge/scan',
-      params: { challengeId: challenge.id }
+      params: { 
+        challengeId: challenge.id,
+        brandName: challenge.brand || challenge.title
+      }
     });
   };
 

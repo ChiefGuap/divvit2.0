@@ -19,8 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 
-// Import primitives & mock data
-import { mockUserPoints, mockDailyChallenge, mockDailyChallenges, mockStandardChallenges, mockGroupChallenge, mockGroupChallenges, mockReferralChallenge } from '../../data/mockChallenges';
+// Import primitives
 import PrimaryButton from '../../components/challenges/PrimaryButton';
 import Confetti from '../../components/challenges/Confetti';
 
@@ -28,9 +27,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ChallengeCompleteScreen() {
   const router = useRouter();
-  const { challengeId, points } = useLocalSearchParams();
+  const { challengeId, points, newBalance, streak, challengeTitle: paramTitle } = useLocalSearchParams();
   const idStr = Array.isArray(challengeId) ? challengeId[0] : (challengeId || '');
   const pointsAwarded = Number(Array.isArray(points) ? points[0] : (points || 0));
+  const currentBalance = Number(Array.isArray(newBalance) ? newBalance[0] : (newBalance || 0));
+  const currentStreak = Number(Array.isArray(streak) ? streak[0] : (streak || 0));
+  const challengeTitle = Array.isArray(paramTitle) ? paramTitle[0] : (paramTitle || 'Daily Reward');
+  const completedTodayCount = 340;
 
   // Animating values
   const pulseScale = useSharedValue(1);
@@ -64,34 +67,6 @@ export default function ChallengeCompleteScreen() {
       true
     );
   }, []);
-
-  // Lookup challenge details
-  const getChallenge = (id: string) => {
-    if (!id) return null;
-    if (mockDailyChallenge.id === id) return mockDailyChallenge;
-    if (mockGroupChallenge.id === id) return mockGroupChallenge;
-    if (mockReferralChallenge.id === id) return mockReferralChallenge;
-
-    const daily = mockDailyChallenges.find((c) => c.id === id);
-    if (daily) return daily;
-
-    const std = mockStandardChallenges.find((c) => c.id === id);
-    if (std) return std;
-
-    const grp = mockGroupChallenges.find((c) => c.id === id);
-    if (grp) return grp;
-
-    return null;
-  };
-
-  const challenge = getChallenge(idStr);
-  const challengeTitle = challenge?.title || 'Daily Reward';
-  const completedTodayCount = challenge?.completedTodayCount || 340;
-
-  // Points values mapping: starting base + newly awarded points
-  const startingBalance = mockUserPoints.total;
-  const currentBalance = startingBalance + pointsAwarded;
-  const currentStreak = mockUserPoints.streakDays;
 
   // Animated styles
   const pulseStyle = useAnimatedStyle(() => ({
