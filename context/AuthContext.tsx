@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
 
             const response = await fetch(
                 `${supabaseUrl}/rest/v1/profiles?id=eq.${userId}&select=*`,
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.log('AuthContext: Timeout! Proceeding without waiting for auth');
                 setIsLoading(false);
             }
-        }, 5000);
+        }, 15000);
 
         const initializeAuth = async () => {
             console.log('AuthContext: Initializing auth...');
