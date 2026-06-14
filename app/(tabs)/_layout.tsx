@@ -62,20 +62,83 @@ export default function TabLayout() {
         name="challenges"
         options={{
           title: 'Challenges',
-          tabBarIcon: ({ color, focused }) => (
-            <Svg
-              width={24}
-              height={24}
-              viewBox="0 0 24 24"
-              fill={focused ? color : "none"}
-              stroke={color}
-              strokeWidth={focused ? 2.5 : 2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <Path d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </Svg>
-          ),
+          tabBarIcon: ({ color, size, focused }) => {
+            if (!__DEV__) {
+              return (
+                <View style={{ alignItems: 'center' }}>
+                  {/* Greyed icon */}
+                  <Svg
+                    width={size || 24}
+                    height={size || 24}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#d1d5db"
+                    strokeWidth={focused ? 2.5 : 2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <Path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </Svg>
+                  {/* Tiny "Soon" dot badge */}
+                  <View style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -10,
+                    backgroundColor: '#6346cd',
+                    borderRadius: 999,
+                    paddingHorizontal: 4,
+                    paddingVertical: 1,
+                    minWidth: 26,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Text 
+                      numberOfLines={1}
+                      style={{
+                        fontSize: 6.5,
+                        fontWeight: '800',
+                        color: 'white',
+                        letterSpacing: 0.3,
+                      }}
+                    >
+                      SOON
+                    </Text>
+                  </View>
+                </View>
+              );
+            }
+            // Normal icon in dev
+            return (
+              <Svg
+                width={size || 24}
+                height={size || 24}
+                viewBox="0 0 24 24"
+                fill={focused ? color : "none"}
+                stroke={color}
+                strokeWidth={focused ? 2.5 : 2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <Path d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </Svg>
+            );
+          },
+          tabBarLabel: ({ color }) => {
+            const labelColor = !__DEV__ ? '#d1d5db' : color;
+            return (
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '600',
+                fontFamily: 'Outfit',
+                color: labelColor,
+                marginTop: 2,
+                marginBottom: 0,
+                textTransform: 'none',
+              }}>
+                Challenges
+              </Text>
+            );
+          },
         }}
       />
       <Tabs.Screen
@@ -109,20 +172,24 @@ export default function TabLayout() {
                   <View style={{
                     position: 'absolute',
                     top: -2,
-                    right: -6,
+                    right: -10,
                     backgroundColor: '#6346cd',
                     borderRadius: 999,
-                    paddingHorizontal: 3,
+                    paddingHorizontal: 4,
                     paddingVertical: 1,
-                    minWidth: 20,
+                    minWidth: 26,
                     alignItems: 'center',
+                    justifyContent: 'center',
                   }}>
-                    <Text style={{
-                      fontSize: 7,
-                      fontWeight: '800',
-                      color: 'white',
-                      letterSpacing: 0.3,
-                    }}>
+                    <Text 
+                      numberOfLines={1}
+                      style={{
+                        fontSize: 6.5,
+                        fontWeight: '800',
+                        color: 'white',
+                        letterSpacing: 0.3,
+                      }}
+                    >
                       SOON
                     </Text>
                   </View>

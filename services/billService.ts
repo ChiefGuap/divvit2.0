@@ -1,6 +1,28 @@
 import { supabase } from '../lib/supabase';
 import { BillItem, BillStatus, Participant, PaymentRequest } from '../types';
 
+const ensureBillIsActive = async (billId: string): Promise<void> => {
+    const { data, error } = await supabase
+        .from('bills')
+        .select('status')
+        .eq('id', billId)
+        .single();
+    if (error || !data) throw new Error('Bill not found');
+    if (data.status !== 'active') {
+        throw new Error(`Cannot modify items for a bill with status "${data.status}"`);
+    }
+};
+
+const ensureItemBillIsActive = async (itemId: string): Promise<void> => {
+    const { data, error } = await supabase
+        .from('bill_items')
+        .select('bill_id')
+        .eq('id', itemId)
+        .single();
+    if (error || !data) throw new Error('Item not found');
+    await ensureBillIsActive(data.bill_id);
+};
+
 // ─── BILL OPERATIONS ────────────────────────────────────────────────────────
 
 export const getBill = async (billId: string) => {
@@ -58,6 +80,7 @@ export const createBillItems = async (
     billId: string,
     items: Array<{ name: string; price: number; quantity?: number }>
 ): Promise<BillItem[]> => {
+    await ensureBillIsActive(billId);
     const payload = items.map(item => ({
         bill_id: billId,
         name: item.name || '',
@@ -77,6 +100,7 @@ export const updateBillItem = async (
     itemId: string,
     updates: { name?: string; price?: number }
 ): Promise<BillItem> => {
+    await ensureItemBillIsActive(itemId);
     const { data, error } = await supabase
         .from('bill_items')
         .update(updates)
@@ -88,6 +112,7 @@ export const updateBillItem = async (
 };
 
 export const deleteBillItem = async (itemId: string) => {
+    await ensureItemBillIsActive(itemId);
     const { error } = await supabase
         .from('bill_items')
         .delete()
@@ -99,6 +124,7 @@ export const assignItem = async (
     itemId: string,
     participantId: string | null
 ): Promise<BillItem> => {
+    await ensureItemBillIsActive(itemId);
     const { data, error } = await supabase
         .from('bill_items')
         .update({ assigned_to: participantId })
@@ -113,6 +139,7 @@ export const assignItemMulti = async (
     itemId: string,
     participantIds: string[]
 ): Promise<BillItem> => {
+    await ensureItemBillIsActive(itemId);
     const assignedIds = participantIds.length > 0 ? participantIds.join(',') : null;
     const assignedTo = participantIds.length > 0 ? participantIds[0] : null;
 
@@ -133,6 +160,7 @@ export const assignAllItemsMulti = async (
     billId: string,
     participantIds: string[]
 ): Promise<void> => {
+    await ensureBillIsActive(billId);
     const assignedIds = participantIds.length > 0 ? participantIds.join(',') : null;
     const assignedTo = participantIds.length > 0 ? participantIds[0] : null;
 
@@ -149,6 +177,7 @@ export const assignAllItemsMulti = async (
 export const clearAllAssignmentsMulti = async (
     billId: string
 ): Promise<void> => {
+    await ensureBillIsActive(billId);
     const { error } = await supabase
         .from('bill_items')
         .update({ 
@@ -162,6 +191,9 @@ export const clearAllAssignmentsMulti = async (
 export const randomizeAssignmentsMulti = async (
     updates: Array<{ id: string; assigned_ids: string; assigned_to: string }>
 ): Promise<void> => {
+    if (updates.length > 0) {
+        await ensureItemBillIsActive(updates[0].id);
+    }
     const promises = updates.map(update => 
         supabase
             .from('bill_items')

@@ -23,6 +23,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Participant, BillStatus, getInitials, getNextColor } from '../../types';
 import { supabase } from '../../lib/supabase';
 import '../../global.css';
+import { useBillFlowSync } from '../../hooks/useBillFlowSync';
 
 const getJoinedTimeAgo = (dateString?: string): string => {
     if (!dateString) return 'Ready to split';
@@ -51,6 +52,7 @@ export default function PartyScreen() {
     const hostIdRef = useRef<string | null>(null);
 
     const isHost = user?.id === hostId;
+    useBillFlowSync(billId, 'lobby', isHost);
     const deepLinkUrl = Linking.createURL(`/bill/${billId}`);
     console.log('Generated Join Link:', deepLinkUrl);
 
@@ -305,7 +307,7 @@ export default function PartyScreen() {
             return;
         }
         // Host navigates after broadcast is sent
-        router.push({
+        router.replace({
             pathname: '/bill/[id]',
             params: { id: billId, billData: billData, fromParty: 'true' },
         });

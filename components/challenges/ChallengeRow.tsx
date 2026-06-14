@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,193 +7,184 @@ import { Challenge } from '../../types/challenges';
 
 interface ChallengeRowProps {
   item: Challenge;
-  pointsColor?: 'primary' | 'tertiary'; // deprecated but kept for backward compatibility
 }
 
 export default function ChallengeRow({ item }: ChallengeRowProps) {
-  const handlePressRow = () => {
+  const handlePress = () => {
     router.push(`/challenge/${item.id}`);
   };
 
+  /* ── Icon config per challenge id ──────────────── */
   const getIconConfig = (id: string) => {
-    if (id.includes('gor-gai')) {
+    if (id.includes('gor-gai'))
       return {
         name: 'local-cafe' as const,
-        color: '#6346cd', // primary
-        bgColor: 'rgba(99, 70, 205, 0.1)', // primary/10
+        color: '#5f39dd',
+        bgColor: 'rgba(165, 144, 255, 0.20)',
       };
-    }
-    if (id.includes('group-feast')) {
+    if (id.includes('group-feast'))
       return {
         name: 'group' as const,
-        color: '#6e45ac', // secondary
-        bgColor: 'rgba(110, 69, 172, 0.1)', // secondary/10
+        color: '#6e45ac',
+        bgColor: 'rgba(223, 200, 255, 0.20)',
       };
-    }
-    if (id.includes('sushi')) {
+    if (id.includes('sushi'))
       return {
         name: 'restaurant' as const,
-        color: '#9b3664', // tertiary
-        bgColor: 'rgba(155, 54, 100, 0.1)', // tertiary/10
+        color: '#9b3664',
+        bgColor: 'rgba(255, 140, 186, 0.20)',
       };
-    }
-    if (id.includes('late-night')) {
+    if (id.includes('late-night'))
       return {
         name: 'schedule' as const,
-        color: '#6346cd', // primary
-        bgColor: 'rgba(99, 70, 205, 0.1)', // primary/10
+        color: '#5f39dd',
+        bgColor: 'rgba(165, 144, 255, 0.20)',
       };
-    }
     return {
       name: 'star' as const,
-      color: '#6346cd',
-      bgColor: 'rgba(99, 70, 205, 0.1)',
+      color: '#5f39dd',
+      bgColor: 'rgba(165, 144, 255, 0.20)',
     };
   };
 
-  const getGradientColors = (id: string): [string, string] => {
-    if (id.includes('sushi')) {
-      return ['#fcf4ff', '#ffeff2']; // surface to tertiary-container low opacity (pinkish)
-    }
-    return ['#fcf4ff', '#f8edff']; // surface to surface-container-low (purplish)
-  };
-
-  const getBorderColor = (id: string) => {
-    if (id.includes('sushi')) {
-      return 'rgba(155, 54, 100, 0.15)'; // tertiary outline-variant
-    }
-    return 'rgba(95, 57, 221, 0.15)'; // primary outline-variant
-  };
-
+  /* ── Countdown label ───────────────────────────── */
   const getCountdownLabel = (endsAt: string) => {
-    const difference = +new Date(endsAt) - +new Date();
-    if (difference <= 0) return 'EXPIRED';
-    const hours = difference / (1000 * 60 * 60);
-    if (hours > 24) {
-      return `ENDS IN ${Math.ceil(hours / 24)} DAYS`;
-    } else if (hours > 1) {
-      return `ENDS IN ${Math.ceil(hours)} HRS`;
-    } else {
-      const mins = difference / (1000 * 60);
-      return `ENDS IN ${Math.ceil(mins)} MINS`;
-    }
+    const diff = +new Date(endsAt) - +new Date();
+    if (diff <= 0) return 'EXPIRED';
+    const hrs = diff / (1000 * 60 * 60);
+    if (hrs > 24) return `ENDS IN ${Math.ceil(hrs / 24)} DAYS`;
+    if (hrs > 1) return `ENDS IN ${Math.ceil(hrs)} HRS`;
+    return `ENDS IN ${Math.ceil(diff / (1000 * 60))} MINS`;
   };
 
-  const iconConfig = getIconConfig(item.id);
-  const gradientColors = getGradientColors(item.id);
-  const borderColor = getBorderColor(item.id);
+  const icon = getIconConfig(item.id);
 
   return (
-    <Pressable 
-      onPress={handlePressRow}
-      style={({ pressed }) => [
-        styles.rowContainer,
-        { borderColor },
-        pressed && styles.pressed
-      ]}
+    <TouchableOpacity
+      onPress={handlePress}
+      activeOpacity={0.85}
+      style={styles.rowFrame}
     >
-      {/* Background Gradient matching the spec */}
       <LinearGradient
-        colors={gradientColors}
+        colors={['#ffffff', '#f8edff']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={StyleSheet.absoluteFillObject}
-      />
+        style={styles.rowGradientContainer}
+      >
+        {/* Left: Icon circle */}
+        <View style={[styles.iconCircle, { backgroundColor: icon.bgColor }]}>
+          <MaterialIcons name={icon.name} size={24} color={icon.color} />
+        </View>
 
-      {/* Left Icon Chip with themed background */}
-      <View style={[styles.iconChip, { backgroundColor: iconConfig.bgColor }]}>
-        <MaterialIcons 
-          name={iconConfig.name} 
-          size={22} 
-          color={iconConfig.color} 
-        />
-      </View>
-
-      {/* Middle Text Details */}
-      <View style={styles.details}>
-        <Text style={styles.countdownLabel}>
-          {getCountdownLabel(item.endsAt)}
-        </Text>
-        <Text style={styles.title} numberOfLines={1}>
-          {item.title}
-        </Text>
-        {item.subtitle && (
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {item.subtitle}
+        {/* Center: Text column */}
+        <View style={styles.textCol}>
+          <Text style={styles.countdown}>{getCountdownLabel(item.endsAt)}</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {item.title}
           </Text>
-        )}
-      </View>
+          {item.subtitle && (
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {item.subtitle}
+            </Text>
+          )}
+        </View>
 
-      {/* Right Points Badge (Text only matching the mockup screenshot) */}
-      <View style={styles.pointsBadge}>
-        <Text style={styles.pointsText}>
-          {item.points} PTS
-        </Text>
-      </View>
-    </Pressable>
+        {/* Right: Points pill */}
+        <View style={styles.pointsPill}>
+          <Text style={styles.pointsText}>{item.points} PTS</Text>
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
   );
 }
 
+/* ── Styles ──────────────────────────────────────── */
 const styles = StyleSheet.create({
-  rowContainer: {
+  rowFrame: {
+    width: '100%',                        // stretch to full parent width
+    borderRadius: 48,                     // matching rounded-xl (3rem = 48px)
+    borderWidth: 1,
+    borderColor: 'rgba(184, 165, 211, 0.35)', // slightly more defined outline
+    marginBottom: 16,                     // gap-4
+    // Drop shadow matching drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)]
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    backgroundColor: '#ffffff',
+  },
+  rowGradientContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16, // rounded-xl (not rounded-full) matching the HTML spec and screenshot
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    shadowColor: '#6346cd', // primary shadow tint
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-    overflow: 'hidden',
-    position: 'relative',
+    padding: 13,                          // p-[13px]
+    width: '100%',
+    borderRadius: 48,
   },
-  pressed: {
+  rowPressed: {
     opacity: 0.85,
-    transform: [{ scale: 0.99 }],
+    transform: [{ scale: 0.98 }],
   },
-  iconChip: {
+
+  /* Icon */
+  iconCircle: {
     width: 48,
     height: 48,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 16,                      // gap-[16px]
   },
-  details: {
+
+  /* Text */
+  textCol: {
     flex: 1,
-    marginLeft: 14,
-    marginRight: 8,
+    marginRight: 16,                      // spacing before badge
+    justifyContent: 'center',
   },
-  countdownLabel: {
-    fontSize: 9,
-    fontFamily: 'Manrope_800ExtraBold',
-    color: '#b41340', // text-error / ends-in highlighted color
-    letterSpacing: 0.5,
+  countdown: {
+    fontSize: 9,                          // text-[9px]
+    fontFamily: 'Manrope_800ExtraBold',   // font-black
+    color: '#b41340',                     // error
+    letterSpacing: 0.45,                  // tracking-[0.45px]
     marginBottom: 2,
+    textTransform: 'uppercase',
   },
   title: {
-    fontSize: 14,
-    fontFamily: 'Manrope_800ExtraBold',
-    color: '#36274d', // on-surface
+    fontSize: 14,                         // text-[14px]
+    fontFamily: 'Manrope_800ExtraBold',   // font-black
+    color: '#36274d',                     // on-surface
+    lineHeight: 20,
   },
   subtitle: {
-    fontSize: 11,
-    fontFamily: 'Manrope_500Medium',
-    color: '#64547d', // on-surface-variant
+    fontSize: 11,                         // text-[11px]
+    fontFamily: 'Manrope_500Medium',      // font-medium
+    color: '#64547d',                     // on-surface-variant
+    lineHeight: 16.5,
     marginTop: 1,
   },
-  pointsBadge: {
+
+  /* Points pill */
+  pointsPill: {
+    backgroundColor: '#5f39dd',           // primary
+    borderRadius: 9999,                   // rounded-[9999px]
+    paddingHorizontal: 16,                // px-[16px]
+    paddingVertical: 6,                   // py-[6px]
     justifyContent: 'center',
-    alignItems: 'flex-end',
-    minWidth: 70,
+    alignItems: 'center',
+    alignSelf: 'center',                  // prevent stretching in any layout context
+    // shadow-lg shadow-primary/30
+    shadowColor: '#5f39dd',
+    shadowOpacity: 0.30,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
   pointsText: {
-    fontSize: 16, // slightly larger to pop out like in the mockup
-    fontFamily: 'Outfit_800ExtraBold',
-    color: '#6346cd', // consistent primary color for points
-    letterSpacing: -0.5,
+    fontSize: 14,                         // text-[14px]
+    fontFamily: 'Manrope_800ExtraBold',   // font-black
+    color: '#f6f0ff',                     // on-primary
+    letterSpacing: -0.7,                  // tracking-[-0.7px]
+    textTransform: 'uppercase',
   },
 });

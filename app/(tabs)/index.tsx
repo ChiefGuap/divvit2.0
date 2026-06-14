@@ -155,6 +155,7 @@ export default function HomeScreen() {
             details: {
               items: [],
               scannedTip: 0,
+              is_manual: true,
             }
           }),
         }

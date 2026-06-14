@@ -20,31 +20,33 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 90,
-    height: 90,
+    width: 96,  // w-24
+    height: 96, // h-24
     overflow: 'hidden',
+    zIndex: 20,
   },
   ribbon: {
     position: 'absolute',
-    top: 15,
-    right: -25,
-    width: 120,
-    backgroundColor: '#6346cd', // primary bg
+    top: 10,
+    right: -30,
+    width: 128, // w-32
+    backgroundColor: '#6346cd',
     transform: [{ rotate: '45deg' }],
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
+    // shadow-lg
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   text: {
-    color: '#f6f0ff', // on-primary
-    fontSize: 10,
-    fontFamily: 'Outfit_800ExtraBold',
-    letterSpacing: 1,
+    color: '#ffffff',
+    fontSize: 11,
+    fontFamily: 'Manrope_800ExtraBold',
+    letterSpacing: 2,
     textTransform: 'uppercase',
   },
 });

@@ -1,103 +1,123 @@
 import React, { useState } from 'react';
-import { View, FlatList, Image, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
+import {
+  View,
+  FlatList,
+  Image,
+  Text,
+  StyleSheet,
+  Dimensions,
+  TouchableOpacity,
+} from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
 import { Challenge } from '../../types/challenges';
 import RibbonBadge from './RibbonBadge';
-import PrimaryButton from './PrimaryButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 48;
+const CARD_WIDTH = SCREEN_WIDTH - 48; // px-6 on each side
 
 interface DailyChallengeCarouselProps {
   data: Challenge[];
 }
 
-export default function DailyChallengeCarousel({ data }: DailyChallengeCarouselProps) {
+export default function DailyChallengeCarousel({
+  data,
+}: DailyChallengeCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const handlePressCard = (id: string) => {
+  const handlePress = (id: string) => {
     router.push(`/challenge/${id}`);
   };
 
+  /* ── Rich-text description ─────────────────────── */
   const renderDescription = (desc: string, brand?: string) => {
-    const escapedBrand = brand ? brand.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') : '';
+    const escaped = brand
+      ? brand.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+      : '';
     const pattern = new RegExp(
-      `(${[escapedBrand, '\\b\\d+\\s*(?:bonus\\s+)?(?:pts|points|PTS)\\b(?: each)?!?'].filter(Boolean).join('|')})`,
-      'gi'
+      `(${[escaped, '\\b\\d+\\s*(?:bonus\\s+)?(?:pts|points|PTS)\\b(?: each)?!?']
+        .filter(Boolean)
+        .join('|')})`,
+      'gi',
     );
     const parts = desc.split(pattern);
 
     return (
       <Text style={styles.description}>
-        {parts.map((part, index) => {
-          if (brand && part.toLowerCase() === brand.toLowerCase()) {
+        {parts.map((part, i) => {
+          if (brand && part.toLowerCase() === brand.toLowerCase())
             return (
-              <Text key={index} style={styles.boldPrimary}>
+              <Text key={i} style={styles.brandHighlight}>
                 {part}
               </Text>
             );
-          }
-          if (/^\d+\s*(?:bonus\s+)?(?:pts|points|PTS)/i.test(part)) {
+          if (/^\d+\s*(?:bonus\s+)?(?:pts|points|PTS)/i.test(part))
             return (
-              <Text key={index} style={styles.boldSecondary}>
+              <Text key={i} style={styles.ptsHighlight}>
                 {part}
               </Text>
             );
-          }
           return part;
         })}
       </Text>
     );
   };
 
+  /* ── Card renderer ─────────────────────────────── */
   const renderItem = ({ item }: { item: Challenge }) => {
-    // Habit Burger mock image fallback if none provided
-    const imageUri = item.imageUrl || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80';
+    const imageUri =
+      item.imageUrl ||
+      'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80';
 
     return (
-      <View style={styles.cardShadow}>
-        <Pressable 
-          onPress={() => handlePressCard(item.id)}
-          style={({ pressed }) => [
-            styles.cardInner,
-            pressed && styles.pressedCard
-          ]}
-        >
-          {/* Top Image Section */}
-          <View style={styles.imageContainer}>
-            <Image source={{ uri: imageUri }} style={styles.image} />
-            
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.85)']}
-              style={styles.gradient}
-            />
-            
-            {/* Overlaid Title */}
-            <Text style={styles.overlaidTitle}>{item.title}</Text>
-            
-            {/* Ribbon Badge */}
-            <RibbonBadge text={`${item.points} PTS`} />
-          </View>
+      <View style={styles.cardOuter}>
+        {/* Glow layer (outside the clipped container) */}
+        <View style={styles.glowLayer} />
 
-          {/* Bottom Details Section */}
-          <View style={styles.detailsContainer}>
-            {renderDescription(item.description, item.brand)}
-            
-            <PrimaryButton 
-              label={item.ctaLabel || 'SCAN RECEIPT'} 
-              onPress={() => handlePressCard(item.id)}
-              iconName="receipt-long"
-              style={styles.button}
-            />
+        {/* Clipped Card Container (forces rounded corners) */}
+        <View style={styles.cardClipContainer}>
+          <View style={styles.cardContent}>
+            {/* Image banner */}
+            <View style={styles.imageBanner}>
+              <Image source={{ uri: imageUri }} style={styles.image} />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.60)']}
+                style={styles.imageGradient}
+              />
+              <Text style={styles.heroTitle}>{item.title}</Text>
+
+              {/* Ribbon badge */}
+              <RibbonBadge text={`${item.points}pts`} />
+            </View>
+
+            {/* Body */}
+            <View style={styles.body}>
+              {renderDescription(item.description, item.brand)}
+
+              {/* CTA Button */}
+              <TouchableOpacity
+                onPress={() => handlePress(item.id)}
+                activeOpacity={0.85}
+                style={styles.ctaButton}
+              >
+                <MaterialIcons
+                  name="receipt-long"
+                  size={18}
+                  color="#f6f0ff"
+                  style={styles.ctaIcon}
+                />
+                <Text style={styles.ctaLabel}>SCAN RECEIPT</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </Pressable>
+        </View>
       </View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.root}>
       <FlatList
         data={data}
         renderItem={renderItem}
@@ -107,128 +127,163 @@ export default function DailyChallengeCarousel({ data }: DailyChallengeCarouselP
         snapToInterval={CARD_WIDTH + 16}
         snapToAlignment="center"
         decelerationRate="fast"
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles.listPad}
         onScroll={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + 16));
-          if (index >= 0 && index < data.length) {
-            setActiveIndex(index);
-          }
+          const idx = Math.round(
+            e.nativeEvent.contentOffset.x / (CARD_WIDTH + 16),
+          );
+          if (idx >= 0 && idx < data.length) setActiveIndex(idx);
         }}
       />
-      
-      {/* Dot Indicators */}
-      <View style={styles.dotsContainer}>
-        {[0, 1, 2].map((i) => {
-          const isActive = data.length > 1 ? activeIndex === i : i === 0;
-          return (
-            <View 
-              key={i} 
-              style={[
-                styles.dot, 
-                isActive ? styles.activeDot : styles.inactiveDot
-              ]} 
-            />
-          );
-        })}
+
+      {/* Dot indicators */}
+      <View style={styles.dots}>
+        {data.map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.dot,
+              i === activeIndex ? styles.dotActive : styles.dotInactive,
+            ]}
+          />
+        ))}
       </View>
     </View>
   );
 }
 
+/* ── Styles ──────────────────────────────────────── */
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 24,
+  root: {
+    marginBottom: 28,
   },
-  listContent: {
+  listPad: {
     paddingHorizontal: 24,
     paddingBottom: 16,
   },
-  cardShadow: {
+
+  /* Card wrapper */
+  cardOuter: {
     width: CARD_WIDTH,
-    backgroundColor: '#ffffff', // surface-container-lowest
-    borderRadius: 24, // rounded-lg / xl matching the card style
     marginRight: 16,
-    // Signature Glow Shadow - more prominent
-    shadowColor: '#6346cd',
-    shadowOpacity: 0.22,
-    shadowRadius: 25,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 12,
-  },
-  cardInner: {
-    width: '100%',
-    borderRadius: 24,
-    overflow: 'hidden',
-    backgroundColor: '#ffffff',
-  },
-  pressedCard: {
-    opacity: 0.95,
-  },
-  imageContainer: {
-    height: 160, // h-40 in HTML spec
     position: 'relative',
+  },
+  glowLayer: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 48,
+    backgroundColor: 'transparent',
+    shadowColor: '#7c5afa',
+    shadowOpacity: 0.10,
+    shadowRadius: 50,
+    shadowOffset: { width: 0, height: 20 },
+    elevation: 14,
+  },
+  cardClipContainer: {
+    width: '100%',
+    borderRadius: 48,
+    overflow: 'hidden',                  // This standard View will strictly clip children
+    backgroundColor: '#ffffff', // surface-container-lowest
+  },
+  cardContent: {
+    width: '100%',
+  },
+
+  /* Image banner */
+  imageBanner: {
+    height: 160,
+    position: 'relative',
+    overflow: 'hidden',
+    borderTopLeftRadius: 48,
+    borderTopRightRadius: 48,
   },
   image: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+    borderTopLeftRadius: 48,
+    borderTopRightRadius: 48,
   },
-  gradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 100,
+  imageGradient: {
+    ...StyleSheet.absoluteFillObject,
+    top: '40%', // gradient starts below middle
   },
-  overlaidTitle: {
+  heroTitle: {
     position: 'absolute',
     bottom: 16,
     left: 24,
     right: 24,
     color: '#ffffff',
     fontSize: 24,
-    fontFamily: 'Outfit_800ExtraBold',
+    fontFamily: 'Manrope_800ExtraBold',
     letterSpacing: -0.5,
   },
-  detailsContainer: {
-    padding: 20,
-    alignItems: 'stretch', // stretch button full width
+
+  /* Body */
+  body: {
+    padding: 16,
+    borderBottomLeftRadius: 48,
+    borderBottomRightRadius: 48,
+    backgroundColor: '#ffffff',
   },
   description: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#64547d', // on-surface-variant
-    textAlign: 'left', // left-aligned matching HTML and screenshot
-    lineHeight: 22,
-    marginBottom: 20,
     fontFamily: 'Manrope_500Medium',
+    lineHeight: 26,
+    marginBottom: 24,
   },
-  boldPrimary: {
-    color: '#6346cd', // primary color token
+  brandHighlight: {
+    color: '#5f39dd', // primary
     fontFamily: 'Manrope_700Bold',
   },
-  boldSecondary: {
-    color: '#6346cd', // primary color token (updated from red/maroon)
-    fontFamily: 'Outfit_800ExtraBold',
+  ptsHighlight: {
+    color: '#6e45ac', // secondary
+    fontFamily: 'Manrope_800ExtraBold',
   },
-  button: {
-    marginTop: 4,
+  ctaButton: {
+    width: '100%',
+    backgroundColor: '#5f39dd', // Inline absolute purple color
+    borderRadius: 32,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    // Shadow configuration
+    shadowColor: '#5f39dd',
+    shadowOpacity: 0.20,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
-  dotsContainer: {
+  ctaIcon: {
+    // spacing handled by gap
+  },
+  ctaLabel: {
+    color: '#f6f0ff', // on-primary
+    fontFamily: 'Manrope_800ExtraBold',
+    fontSize: 12,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+  },
+
+  /* Dots */
+  dots: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 16,
+    gap: 8,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginHorizontal: 4,
   },
-  activeDot: {
-    backgroundColor: '#6346cd', // primary
+  dotActive: {
+    backgroundColor: '#5f39dd', // primary
   },
-  inactiveDot: {
-    backgroundColor: '#e8d5ff', // surface-variant
+  dotInactive: {
+    backgroundColor: '#b8a5d3', // outline-variant
   },
 });

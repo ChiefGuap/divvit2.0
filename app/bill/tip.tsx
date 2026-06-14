@@ -278,7 +278,7 @@ export default function TipScreen() {
             }
         });
 
-        router.push({
+        router.replace({
             pathname: '/bill/checkout' as any,
             params: {
                 billId: billId,
@@ -419,7 +419,7 @@ export default function TipScreen() {
                 }
 
                 // Host navigates to payment screen
-                router.push({
+                router.replace({
                     pathname: '/bill/payment' as any,
                     params: { billId, fromParty: 'true' },
                 });
@@ -459,7 +459,7 @@ export default function TipScreen() {
         });
 
         // Navigate to checkout
-        router.push({
+        router.replace({
             pathname: '/bill/checkout' as any,
             params: {
                 billId: billId,
@@ -503,12 +503,7 @@ export default function TipScreen() {
             <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
                 <Stack.Screen options={{ headerShown: false }} />
                 <View className="flex-row items-center justify-between px-6 h-16 w-full z-50">
-                    <TouchableOpacity
-                        onPress={() => router.back()}
-                        className="w-10 h-10 items-center justify-center rounded-full"
-                    >
-                        <ArrowLeft color="#6346cd" size={24} />
-                    </TouchableOpacity>
+                    <View className="w-10" />
                     <DivvitLogo />
                     <View className="w-10" />
                 </View>

@@ -32,47 +32,47 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff', // surface-container-lowest
-    borderRadius: 24, // rounded-[24px]
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-    // Soft shadow
-    shadowColor: '#36274d',
-    shadowOpacity: 0.03,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 10,
+    minHeight: 70,
+    marginBottom: 6,
+    // Signature Drop Shadow matching drop-shadow-[0px_10px_15px_rgba(95,57,221,0.05)]
+    shadowColor: '#5f39dd',
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
     borderWidth: 1,
-    borderColor: 'rgba(95,57,221,0.03)',
+    borderColor: '#f8edff',
   },
   numberChip: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#e6deff', // primary-container/30 low tint background
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(165, 144, 255, 0.3)', // Overlay color
     alignItems: 'center',
     justifyContent: 'center',
   },
   numberText: {
-    fontSize: 15,
-    fontFamily: 'Outfit_800ExtraBold',
-    color: '#6346cd', // primary
+    fontSize: 12,
+    fontFamily: 'Manrope_800ExtraBold',
+    color: '#5f39dd', // Purple number color
   },
   textContainer: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 10,
   },
   title: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: 'Manrope_700Bold',
-    color: '#36274d', // on-background
+    color: '#36274d', // heading-color
     marginBottom: 2,
   },
   description: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'Manrope_500Medium',
-    color: '#64547d', // on-surface-variant
-    lineHeight: 18,
+    color: '#64547d', // description text color
+    lineHeight: 16,
   },
 });

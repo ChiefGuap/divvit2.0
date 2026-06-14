@@ -1,17 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, Pressable, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { useCountdown } from '../../hooks/useCountdown';
 import {
   mockDailyChallenge,
+  mockDailyChallenges, // Also import mockDailyChallenges, mockGroupChallenges to support dynamic lookup
   mockStandardChallenges,
   mockGroupChallenge,
+  mockGroupChallenges,
   mockReferralChallenge,
 } from '../../data/mockChallenges';
+import { Challenge } from '../../types/challenges'; // Import Challenge type
 import PrimaryButton from '../../components/challenges/PrimaryButton';
 import HowItWorksStep from '../../components/challenges/HowItWorksStep';
 
@@ -28,10 +32,44 @@ export default function ChallengeDetailsScreen() {
     if (mockReferralChallenge.id === challengeId) return mockReferralChallenge;
     const std = mockStandardChallenges.find((c) => c.id === challengeId);
     if (std) return std;
+    const daily = mockDailyChallenges.find((c) => c.id === challengeId);
+    if (daily) return daily;
+    const group = mockGroupChallenges.find((c) => c.id === challengeId);
+    if (group) return group;
     return null;
   };
 
   const challenge = getChallenge(id as string);
+
+  const getHowItWorksSteps = (currentChallenge: Challenge) => {
+    const brand = currentChallenge.brand || currentChallenge.title;
+    if (currentChallenge.id === 'daily-habit-burger') {
+      return [
+        { title: `Visit ${brand}`, description: 'Head over to any participating location today.' },
+        { title: 'Buy a Smash Burger', description: 'Make sure your order includes the qualifying item.' },
+        { title: 'Scan your receipt', description: 'Use the button below to capture and submit.' },
+      ];
+    }
+    if (currentChallenge.id === 'std-gor-gai') {
+      return [
+        { title: `Visit ${brand}`, description: 'Head over to any participating location today.' },
+        { title: 'Order Pad-Thai', description: 'Make sure your order includes the qualifying item.' },
+        { title: 'Scan your receipt', description: 'Use the button below to capture and submit.' },
+      ];
+    }
+    if (currentChallenge.id === 'std-sushi-saturday') {
+      return [
+        { title: `Visit ${brand}`, description: 'Head over to any participating location today.' },
+        { title: 'Order Cobb Salad', description: 'Make sure your order includes the qualifying item.' },
+        { title: 'Scan your receipt', description: 'Use the button below to capture and submit.' },
+      ];
+    }
+    return [
+      { title: `Visit ${brand}`, description: 'Head over to any participating location today.' },
+      { title: 'Order', description: 'Make sure your order includes any qualifying items.' },
+      { title: 'Scan your receipt', description: 'Use the button below to capture and submit.' },
+    ];
+  };
 
   // Dynamic ticking countdown
   const countdown = useCountdown(challenge?.endsAt || new Date().toISOString());
@@ -96,9 +134,21 @@ export default function ChallengeDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 2. Decorative Blurred Spheres Background */}
-      <View style={styles.sphere1} pointerEvents="none" />
-      <View style={styles.sphere2} pointerEvents="none" />
+      {/* 2. Decorative Background Spheres */}
+      <LinearGradient
+        colors={['rgba(110, 69, 172, 0.08)', 'rgba(110, 69, 172, 0)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.sphere1}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={['rgba(95, 57, 221, 0.12)', 'rgba(95, 57, 221, 0)']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.sphere2}
+        pointerEvents="none"
+      />
 
       {/* Scrollable Content Body */}
       <ScrollView
@@ -106,8 +156,8 @@ export default function ChallengeDetailsScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           { 
-            paddingTop: insets.top + 64, // below sticky header
-            paddingBottom: insets.bottom + 100 // clear fixed button
+            paddingTop: insets.top + 64, // aligned right below custom header
+            paddingBottom: insets.bottom + 76 // clear compact action area
           }
         ]}
       >
@@ -136,9 +186,11 @@ export default function ChallengeDetailsScreen() {
         <View style={styles.metaContainer}>
           <Text style={styles.title}>{challenge.title}</Text>
           
-          <View style={styles.countdownPill}>
-            <MaterialIcons name="schedule" size={14} color="#b41340" style={styles.scheduleIcon} />
-            <Text style={styles.countdownText}>ENDS IN: {countdown.formatted}</Text>
+          <View style={styles.countdownRow}>
+            <MaterialIcons name="schedule" size={16} color="#a70138" style={{ marginRight: 8 }} />
+            <View style={styles.countdownPill}>
+              <Text style={styles.countdownText}>ENDS IN: {countdown.formatted}</Text>
+            </View>
           </View>
         </View>
 
@@ -151,49 +203,46 @@ export default function ChallengeDetailsScreen() {
         <View style={styles.howItWorksContainer}>
           <Text style={styles.sectionHeading}>How it works</Text>
           
-          <HowItWorksStep 
-            stepNumber={1}
-            title={`Visit ${brandName}`}
-            description="Head over to any participating location today."
-          />
-          <HowItWorksStep 
-            stepNumber={2}
-            title="Order"
-            description="Make sure your order includes any qualifying items."
-          />
-          <HowItWorksStep 
-            stepNumber={3}
-            title="Scan your receipt"
-            description="Use the button below to capture and submit."
-          />
+          {getHowItWorksSteps(challenge).map((step, idx) => (
+            <HowItWorksStep 
+              key={idx}
+              stepNumber={idx + 1}
+              title={step.title}
+              description={step.description}
+            />
+          ))}
         </View>
       </ScrollView>
 
       {/* 1. Translucent Sticky Custom Header */}
-      <BlurView intensity={70} style={[styles.header, { paddingTop: insets.top }]} tint="light">
-        <Pressable 
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <MaterialIcons name="arrow-back" size={20} color="#6346cd" />
-        </Pressable>
+      <BlurView intensity={70} style={[styles.header, { paddingTop: insets.top + 16 }]} tint="light">
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            onPress={() => router.replace('/(tabs)/challenges')}
+            style={styles.backButton}
+            activeOpacity={0.85}
+          >
+            <MaterialIcons name="arrow-back" size={16} color="#5f39dd" />
+          </TouchableOpacity>
+        </View>
         <Text style={styles.headerTitle}>Challenge Details</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerRight} />
       </BlurView>
 
       {/* 7. Fixed Bottom Action Button Area with Gradient Fade */}
-      <View style={[styles.bottomContainer, { paddingBottom: insets.bottom + 16 }]}>
-        <LinearGradient
-          colors={['transparent', '#fcf4ff']}
-          style={styles.bottomFade}
-          pointerEvents="none"
-        />
+      <LinearGradient
+        colors={['rgba(252,244,255,0)', 'rgba(252,244,255,0.95)', '#fcf4ff']}
+        locations={[0, 0.45, 1]}
+        style={[styles.bottomContainer, { paddingBottom: insets.bottom + 16 }]}
+      >
         <PrimaryButton 
           label="SCAN RECEIPT"
           onPress={handleScanReceipt}
           iconName="receipt-long"
+          style={styles.ctaButton}
+          labelStyle={styles.ctaLabel}
         />
-      </View>
+      </LinearGradient>
     </View>
   );
 }
@@ -233,63 +282,72 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 100,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(95,57,221,0.06)',
     zIndex: 100,
+    backgroundColor: 'rgba(250, 244, 255, 0.9)',
+  },
+  headerLeft: {
+    width: 32,
+    alignItems: 'flex-start',
+  },
+  headerRight: {
+    width: 32,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f1e3ff', // surface-container-high
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e8d5ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: 'Manrope_800ExtraBold',
-    color: '#6346cd', // primary
-  },
-  headerSpacer: {
-    width: 40,
+    color: '#4142e3',
+    letterSpacing: -0.5,
+    textAlign: 'center',
+    flex: 1,
   },
   sphere1: {
     position: 'absolute',
-    top: 120,
+    bottom: 99.5,
     left: -50,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(95,57,221,0.08)', // low opacity primary blob
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    overflow: 'hidden',
   },
   sphere2: {
     position: 'absolute',
-    top: 250,
-    right: -50,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(155,54,100,0.08)', // low opacity secondary/tertiary blob
+    top: -100,
+    right: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    overflow: 'hidden',
   },
   scrollContent: {
     paddingHorizontal: 24,
   },
   heroCard: {
-    height: 240,
+    height: 230, // Increased height for better visual impact
     borderRadius: 32, // rounded-[32px]
     overflow: 'hidden',
     position: 'relative',
-    marginBottom: 24,
-    shadowColor: '#36274d',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    marginBottom: 12, // Tighter margin
+    backgroundColor: '#ffffff',
+    shadowColor: '#7c5afa',
+    shadowOpacity: 0.15,
+    shadowRadius: 25,
+    shadowOffset: { width: 0, height: 20 },
+    elevation: 8,
   },
   heroImage: {
     width: '100%',
@@ -301,18 +359,18 @@ const styles = StyleSheet.create({
   },
   glassBadge: {
     position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    borderRadius: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    bottom: 12,
+    left: 12,
+    right: 12,
+    borderRadius: 24,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
     overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   badgeLeft: {
     flex: 1,
@@ -320,75 +378,76 @@ const styles = StyleSheet.create({
   badgeMicro: {
     fontSize: 9,
     fontFamily: 'Outfit_800ExtraBold',
-    color: 'rgba(255, 255, 255, 0.7)',
-    letterSpacing: 1.5,
+    color: 'rgba(255, 255, 255, 0.9)',
+    letterSpacing: 1.0,
     textTransform: 'uppercase',
   },
   badgePoints: {
     fontSize: 16,
     fontFamily: 'Outfit_800ExtraBold',
     color: '#ffffff',
-    marginTop: 2,
+    marginTop: 1,
   },
   badgeRightCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#ff8cba', // tertiary-fixed / tertiary highlight
+    backgroundColor: '#ff8cba', // tertiary highlight
     alignItems: 'center',
     justifyContent: 'center',
   },
   metaContainer: {
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontFamily: 'Outfit_800ExtraBold',
-    color: '#6346cd', // primary
-    lineHeight: 34,
     marginBottom: 10,
   },
-  countdownPill: {
+  title: {
+    fontSize: 22, // Even more compact font size
+    fontFamily: 'Outfit_800ExtraBold',
+    color: '#5f39dd', // primary brand purple
+    lineHeight: 26,
+    letterSpacing: -0.75,
+    marginBottom: 4,
+  },
+  countdownRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffeff2', // error-container/10 bg tint
-    borderRadius: 9999,
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(180,19,64,0.06)',
+    marginBottom: 6,
   },
-  scheduleIcon: {
-    marginRight: 6,
+  countdownPill: {
+    backgroundColor: 'rgba(247, 75, 109, 0.1)',
+    borderRadius: 9999,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    alignSelf: 'flex-start',
   },
   countdownText: {
-    fontSize: 11,
-    fontFamily: 'Outfit_800ExtraBold',
-    color: '#b41340', // error-dim
-    letterSpacing: 0.5,
+    fontSize: 11, // Compact size
+    fontFamily: 'Manrope_700Bold',
+    color: '#a70138',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   descriptionContainer: {
-    marginBottom: 28,
+    marginBottom: 12,
   },
   descriptionText: {
-    fontSize: 14,
+    fontSize: 13, // Compact font size
     fontFamily: 'Manrope_500Medium',
-    color: '#64547d', // on-surface-variant
-    lineHeight: 22,
+    color: '#64547d',
+    lineHeight: 18,
   },
   boldPrimary: {
-    color: '#6346cd',
+    color: '#5f39dd',
     fontFamily: 'Manrope_700Bold',
   },
   howItWorksContainer: {
-    marginBottom: 20,
+    marginBottom: 8,
   },
   sectionHeading: {
-    fontSize: 18,
+    fontSize: 14, // Slightly smaller
     fontFamily: 'Manrope_800ExtraBold',
-    color: '#36274d', // on-background
-    marginBottom: 16,
+    color: '#36274d',
+    letterSpacing: -0.4,
+    marginBottom: 6,
   },
   bottomContainer: {
     position: 'absolute',
@@ -396,15 +455,22 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 24,
-    paddingTop: 24,
-    backgroundColor: 'transparent',
-    zIndex: 90,
+    paddingTop: 12,
   },
-  bottomFade: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 24,
+  ctaButton: {
+    backgroundColor: '#5f39dd',
+    height: 48, // Compact height
+    borderRadius: 32,
+    paddingVertical: 0,
+    shadowColor: '#5f39dd',
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  ctaLabel: {
+    fontSize: 14, // Tighter font size
+    fontFamily: 'Manrope_800ExtraBold',
+    letterSpacing: 0,
   },
 });

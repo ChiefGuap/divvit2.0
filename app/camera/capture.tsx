@@ -121,6 +121,7 @@ export default function CaptureScreen() {
                             scannedTip: result.scannedTip || 0,
                             tax,
                             subtotal,
+                            is_manual: false,
                         }
                     }),
                 }

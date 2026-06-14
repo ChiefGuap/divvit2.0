@@ -31,7 +31,7 @@ export const mockStandardChallenges: Challenge[] = [
     id: 'std-gor-gai',
     kind: 'standard',
     title: 'Gor Gai Eatery',
-    subtitle: 'Scan the Pad-Thai',
+    subtitle: 'Get their Pad-Thai menu item',
     points: 100,
     endsAt: getRelativeFutureTime(48), // 2 days
     description: 'Scan a receipt from Gor Gai Eatery including a Pad-Thai order.',
@@ -40,8 +40,8 @@ export const mockStandardChallenges: Challenge[] = [
   {
     id: 'std-group-feast',
     kind: 'standard',
-    title: 'Group Feast',
-    subtitle: 'Eat with 3+ friends',
+    title: "Tim's Avenue",
+    subtitle: 'Get their Pork Belly Fries..',
     points: 200,
     endsAt: getRelativeFutureTime(120), // 5 days
     description: 'Create a split bill with 3 or more friends to unlock group feast points.',
@@ -50,8 +50,8 @@ export const mockStandardChallenges: Challenge[] = [
   {
     id: 'std-sushi-saturday',
     kind: 'standard',
-    title: 'Sushi Saturday',
-    subtitle: 'Order a sushi platter',
+    title: 'Chick-fil-A',
+    subtitle: 'Get their Cobb Salad...',
     points: 150,
     endsAt: getRelativeFutureTime(24), // 1 day
     description: 'Order any sushi platter on Saturday and scan the receipt.',
@@ -60,8 +60,8 @@ export const mockStandardChallenges: Challenge[] = [
   {
     id: 'std-late-night',
     kind: 'standard',
-    title: 'Late Night Snack',
-    subtitle: 'Scan a receipt after 10 PM',
+    title: 'Cafe BNA',
+    subtitle: 'Get their Matcha Latte...',
     points: 75,
     endsAt: getRelativeFutureTime(4), // 4 hours
     description: 'Grab a bite late and upload your receipt matching a timestamp after 10:00 PM.',
@@ -76,7 +76,7 @@ export const mockGroupChallenge: GroupChallenge = {
   description: 'Complete 4 orders with your group this week to earn 100 bonus pts each!',
   points: 100,
   goalCount: 4,
-  completedCount: 2, // arbitrary progress representing standard mockup state
+  completedCount: 2,
   perMemberPoints: 100,
   endsAt: getRelativeFutureTime(120), // 5 days
   ctaLabel: 'Group Progress',
@@ -90,7 +90,7 @@ export const mockReferralChallenge: Challenge = {
   points: 25,
   endsAt: getRelativeFutureTime(720), // 30 days
   ctaLabel: 'Copy Invite Link',
-  imageUrl: 'divvit.app/u/opendivvit', // mapped link stored in image url or custom property
+  imageUrl: 'divvit.app/u/opendivvit',
 };
 
 // Arrays to support carousel scrolling

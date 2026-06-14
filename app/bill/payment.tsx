@@ -44,6 +44,7 @@ import {
 import type { ZelleBank } from '../../utils/payments';
 import { supabase } from '../../lib/supabase';
 import { useBillFlowSync } from '../../hooks/useBillFlowSync';
+import PaymentRequestSheet from '../../components/bill/PaymentRequestSheet';
 
 // ─── DESIGN TOKENS ─────────────────────────────────────────────────────────
 const COLORS = {
@@ -86,6 +87,8 @@ export default function PaymentScreen() {
         apple_pay_handle: string | null;
     } | null>(null);
     const [participantProfiles, setParticipantProfiles] = useState<ProfileMap>({});
+    const [selectedParticipantForSheet, setSelectedParticipantForSheet] = useState<Participant | null>(null);
+    const [isSheetVisible, setIsSheetVisible] = useState(false);
 
     // ─── ZELLE BANK PREFERENCE ──────────────────────────────────────────────────
     const ZELLE_STORAGE_KEY = '@divvit_zelle_bank';
@@ -545,145 +548,155 @@ export default function PaymentScreen() {
         }
     };
 
-    const handleParticipantAction = useCallback((participant: Participant) => {
-        const request = paymentRequests.find(
-            pr => pr.from_participant_id === participant.id ||
-                  (pr.from_user_id && participant.user_id && pr.from_user_id === participant.user_id)
-        );
-        const amount = request?.amount || (shares[participant.id] || 0);
-        const profile = participant.user_id ? participantProfiles[participant.user_id] : null;
+    const selectedParticipantRequest = useMemo(() => {
+        if (!selectedParticipantForSheet) return null;
+        return paymentRequests.find(
+            pr => pr.from_participant_id === selectedParticipantForSheet.id ||
+                  (pr.from_user_id && selectedParticipantForSheet.user_id && pr.from_user_id === selectedParticipantForSheet.user_id)
+        ) || null;
+    }, [paymentRequests, selectedParticipantForSheet]);
 
-        const alertOptions: Array<{ text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }> = [];
+    const selectedParticipantAmount = useMemo(() => {
+        if (!selectedParticipantForSheet) return 0;
+        return selectedParticipantRequest?.amount || (shares[selectedParticipantForSheet.id] || 0);
+    }, [shares, selectedParticipantRequest, selectedParticipantForSheet]);
 
-        alertOptions.push({
-            text: profile?.venmo_handle
-                ? '💙 Request via Venmo'
-                : '💙 Request via Venmo (search manually)',
-            onPress: async () => {
-                if (profile?.venmo_handle) {
-                    await requestVenmo(
-                        profile.venmo_handle,
-                        amount,
-                        bill?.restaurant_name || 'Bill Split'
-                    );
-                } else {
-                    await requestVenmoNoRecipient(
-                        amount,
-                        `Divvit: Bill split - ${participant.name}`
-                    );
-                }
-            },
-        });
+    const selectedParticipantProfile = useMemo(() => {
+        if (!selectedParticipantForSheet || !selectedParticipantForSheet.user_id) return null;
+        return participantProfiles[selectedParticipantForSheet.user_id] || null;
+    }, [participantProfiles, selectedParticipantForSheet]);
 
-        alertOptions.push({
-            text: profile?.cashapp_handle
-                ? '💚 Request via Cash App'
-                : '💚 Request via Cash App (search manually)',
-            onPress: async () => {
-                if (profile?.cashapp_handle) {
-                    await requestCashApp(profile.cashapp_handle, amount);
-                } else {
-                    await requestCashAppNoRecipient(amount);
-                }
-            },
-        });
-
-        alertOptions.push({
-            text: '🏦 Request via Zelle',
-            onPress: async () => {
-                const zelleContact = profile?.zelle_handle;
-                if (!zelleContact) {
-                    Alert.alert(
-                        'No Zelle',
-                        `${participant.name} hasn't added their Zelle email or phone yet.`
-                    );
-                    return;
-                }
-                // Copy guest's Zelle contact to clipboard for the host
-                Clipboard.setString(zelleContact);
-                if (savedZelleBank) {
-                    // Host has a saved bank — open it directly
-                    Alert.alert(
-                        'Request via Zelle',
-                        `${participant.name}'s Zelle contact copied to clipboard.\n\nOpen ${savedZelleBank.name} and request $${amount.toFixed(2)} from:\n${zelleContact}`,
-                        [
-                            { text: `Open ${savedZelleBank.shortName}`, onPress: () => openZelleViaBank(savedZelleBank, zelleContact, amount, participant.name) },
-                            {
-                                text: 'Change Bank',
-                                onPress: () => {
-                                    setZelleRequestParams({
-                                        contact: zelleContact,
-                                        amount: amount,
-                                        name: participant.name,
-                                    });
-                                    setShowBankPicker(true);
-                                }
-                            },
-                            { text: 'Cancel', style: 'cancel' },
-                        ]
-                    );
-                } else {
-                    // No saved bank — show picker
-                    Alert.alert(
-                        'Request via Zelle',
-                        `${participant.name}'s Zelle contact copied to clipboard: ${zelleContact}\n\nOpen your bank app and request $${amount.toFixed(2)} via Zelle.`,
-                        [
-                            {
-                                text: 'Select Bank',
-                                onPress: () => {
-                                    setZelleRequestParams({
-                                        contact: zelleContact,
-                                        amount: amount,
-                                        name: participant.name,
-                                    });
-                                    setShowBankPicker(true);
-                                }
-                            },
-                            { text: 'Cancel', style: 'cancel' },
-                        ]
-                    );
-                }
-            },
-        });
-
-        if (request && request.status !== 'confirmed') {
-            alertOptions.push({
-                text: 'Mark as Received',
-                onPress: () => {
-                    Alert.alert(
-                        'Confirm Receipt',
-                        `Confirm you received $${amount.toFixed(2)} from ${participant.name}?`,
-                        [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Confirm', onPress: () => handleConfirmPayment(request.id) },
-                        ]
-                    );
-                },
-            });
-
-            alertOptions.push({
-                text: 'Settle Outside App',
-                onPress: () => {
-                    Alert.alert(
-                        'Settle Outside',
-                        `Mark ${participant.name}'s payment as settled outside Divvit?`,
-                        [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Settle', onPress: () => handleConfirmPayment(request.id) },
-                        ]
-                    );
-                },
-            });
+    const handleSheetVenmo = async () => {
+        if (!selectedParticipantForSheet) return;
+        const amount = selectedParticipantAmount;
+        const profile = selectedParticipantProfile;
+        setIsSheetVisible(false);
+        
+        if (profile?.venmo_handle) {
+            await requestVenmo(
+                profile.venmo_handle,
+                amount,
+                bill?.restaurant_name || 'Bill Split'
+            );
+        } else {
+            await requestVenmoNoRecipient(
+                amount,
+                `Divvit: Bill split - ${selectedParticipantForSheet.name}`
+            );
         }
+    };
 
-        alertOptions.push({ text: 'Cancel', style: 'cancel' });
+    const handleSheetCashApp = async () => {
+        if (!selectedParticipantForSheet) return;
+        const amount = selectedParticipantAmount;
+        const profile = selectedParticipantProfile;
+        setIsSheetVisible(false);
+
+        if (profile?.cashapp_handle) {
+            await requestCashApp(profile.cashapp_handle, amount);
+        } else {
+            await requestCashAppNoRecipient(amount);
+        }
+    };
+
+    const handleSheetZelle = async () => {
+        if (!selectedParticipantForSheet) return;
+        const participant = selectedParticipantForSheet;
+        const amount = selectedParticipantAmount;
+        const profile = selectedParticipantProfile;
+        setIsSheetVisible(false);
+
+        const zelleContact = profile?.zelle_handle;
+        if (!zelleContact) {
+            Alert.alert(
+                'No Zelle',
+                `${participant.name} hasn't added their Zelle email or phone yet.`
+            );
+            return;
+        }
+        // Copy guest's Zelle contact to clipboard for the host
+        Clipboard.setString(zelleContact);
+        if (savedZelleBank) {
+            // Host has a saved bank — open it directly
+            Alert.alert(
+                'Request via Zelle',
+                `${participant.name}'s Zelle contact copied to clipboard.\n\nOpen ${savedZelleBank.name} and request $${amount.toFixed(2)} from:\n${zelleContact}`,
+                [
+                    { text: `Open ${savedZelleBank.shortName}`, onPress: () => openZelleViaBank(savedZelleBank, zelleContact, amount, participant.name) },
+                    {
+                        text: 'Change Bank',
+                        onPress: () => {
+                            setZelleRequestParams({
+                                contact: zelleContact,
+                                amount: amount,
+                                name: participant.name,
+                            });
+                            setShowBankPicker(true);
+                        }
+                    },
+                    { text: 'Cancel', style: 'cancel' },
+                ]
+            );
+        } else {
+            // No saved bank — show picker
+            Alert.alert(
+                'Request via Zelle',
+                `${participant.name}'s Zelle contact copied to clipboard: ${zelleContact}\n\nOpen your bank app and request $${amount.toFixed(2)} via Zelle.`,
+                [
+                    {
+                        text: 'Select Bank',
+                        onPress: () => {
+                            setZelleRequestParams({
+                                contact: zelleContact,
+                                amount: amount,
+                                name: participant.name,
+                            });
+                            setShowBankPicker(true);
+                        }
+                    },
+                    { text: 'Cancel', style: 'cancel' },
+                ]
+            );
+        }
+    };
+
+    const handleSheetMarkAsReceived = () => {
+        if (!selectedParticipantForSheet || !selectedParticipantRequest) return;
+        const participant = selectedParticipantForSheet;
+        const request = selectedParticipantRequest;
+        const amount = selectedParticipantAmount;
+        setIsSheetVisible(false);
 
         Alert.alert(
-            `${participant.name}`,
-            `Owes $${amount.toFixed(2)}`,
-            alertOptions
+            'Confirm Receipt',
+            `Confirm you received $${amount.toFixed(2)} from ${participant.name}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Confirm', onPress: () => handleConfirmPayment(request.id) },
+            ]
         );
-    }, [shares, paymentRequests, participantProfiles]);
+    };
+
+    const handleSheetSettleOutsideApp = () => {
+        if (!selectedParticipantForSheet || !selectedParticipantRequest) return;
+        const participant = selectedParticipantForSheet;
+        const request = selectedParticipantRequest;
+        setIsSheetVisible(false);
+
+        Alert.alert(
+            'Settle Outside',
+            `Mark ${participant.name}'s payment as settled outside Divvit?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Settle', onPress: () => handleConfirmPayment(request.id) },
+            ]
+        );
+    };
+
+    const handleParticipantAction = useCallback((participant: Participant) => {
+        setSelectedParticipantForSheet(participant);
+        setIsSheetVisible(true);
+    }, []);
 
     // ─── LOADING STATE ─────────────────────────────────────────────────────────
 
@@ -869,6 +882,7 @@ export default function PaymentScreen() {
                 )}
             </View>
 
+
             {/* ─── ZELLE BANK PICKER MODAL ───────────────────────────────── */}
             <Modal
                 visible={showBankPicker}
@@ -1022,6 +1036,19 @@ export default function PaymentScreen() {
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
+
+            <PaymentRequestSheet
+                visible={isSheetVisible}
+                participant={selectedParticipantForSheet}
+                amount={selectedParticipantAmount}
+                request={selectedParticipantRequest}
+                onClose={() => setIsSheetVisible(false)}
+                onVenmo={handleSheetVenmo}
+                onCashApp={handleSheetCashApp}
+                onZelle={handleSheetZelle}
+                onMarkAsReceived={handleSheetMarkAsReceived}
+                onSettleOutsideApp={handleSheetSettleOutsideApp}
+            />
         </SafeAreaView>
     );
 

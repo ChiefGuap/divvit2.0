@@ -3,8 +3,22 @@ Configuration module for loading environment variables.
 Uses pydantic-settings for type-safe configuration management.
 """
 
+import os
 from functools import lru_cache
 from pydantic_settings import BaseSettings
+
+# Manually load .env into os.environ if present, since pydantic-settings doesn't populate os.environ
+if os.path.exists(".env"):
+    with open(".env", "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                key_val = line.split("=", 1)
+                if len(key_val) == 2:
+                    k = key_val[0].strip().strip("'").strip('"')
+                    v = key_val[1].strip().strip("'").strip('"')
+                    if k and k not in os.environ:
+                        os.environ[k] = v
 
 
 class Settings(BaseSettings):

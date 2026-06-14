@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 
 interface PrimaryButtonProps {
@@ -7,6 +7,7 @@ interface PrimaryButtonProps {
   onPress: () => void;
   iconName?: keyof typeof MaterialIcons.glyphMap;
   style?: any;
+  labelStyle?: any;
   disabled?: boolean;
   variant?: 'primary' | 'secondary';
 }
@@ -16,21 +17,22 @@ export default function PrimaryButton({
   onPress,
   iconName,
   style,
+  labelStyle,
   disabled = false,
   variant = 'primary',
 }: PrimaryButtonProps) {
   const isSecondary = variant === 'secondary';
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [
+      activeOpacity={0.8}
+      style={[
         styles.button,
-        isSecondary && styles.secondaryButton,
-        pressed && styles.pressed,
-        disabled && styles.disabled,
-        style,
+        isSecondary ? styles.secondaryButton : {},
+        disabled ? styles.disabled : {},
+        style || {},
       ]}
     >
       <View style={styles.content}>
@@ -42,17 +44,17 @@ export default function PrimaryButton({
             style={styles.icon}
           />
         )}
-        <Text style={[styles.labelText, isSecondary && styles.secondaryLabelText]}>{label}</Text>
+        <Text style={[styles.labelText, isSecondary && styles.secondaryLabelText, labelStyle]}>{label}</Text>
       </View>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
     width: '100%',
-    backgroundColor: '#6346cd', // primary color token
-    borderRadius: 12, // rounded-lg matching the HTML spec
+    backgroundColor: '#6346cd', // primary brand purple
+    borderRadius: 32, // rounded-lg matching Figma (2rem = 32px)
     paddingVertical: 16,
     paddingHorizontal: 24,
     alignItems: 'center',
@@ -63,10 +65,6 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
     shadowOffset: { width: 0, height: 10 },
     elevation: 8,
-  },
-  pressed: {
-    transform: [{ scale: 0.96 }],
-    opacity: 0.9,
   },
   disabled: {
     opacity: 0.5,

@@ -6,7 +6,6 @@ import TabHeader from '@/components/TabHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useRewards } from '../../context/RewardsContext';
 import { useCountdown } from '../../hooks/useCountdown';
-import SectionHeader from '../../components/challenges/SectionHeader';
 import DailyChallengeCarousel from '../../components/challenges/DailyChallengeCarousel';
 import ChallengeRow from '../../components/challenges/ChallengeRow';
 import GroupChallengeCard from '../../components/challenges/GroupChallengeCard';
@@ -21,25 +20,21 @@ const ChallengesComingSoon = () => {
   return (
     <SafeAreaView style={comingSoonStyles.container} edges={['top']}>
       <TabHeader points={0} />
-      
+
       <View style={comingSoonStyles.content}>
         <View style={comingSoonStyles.iconContainer}>
           <Text style={comingSoonStyles.icon}>🏆</Text>
         </View>
-        
-        <Text style={comingSoonStyles.title}>
-          Coming Soon
-        </Text>
-        
+
+        <Text style={comingSoonStyles.title}>Coming Soon</Text>
+
         <Text style={comingSoonStyles.subtitle}>
           Fun challenges and bonus rewards{'\n'}
           are on their way to Divvit.
         </Text>
-        
+
         <View style={comingSoonStyles.badge}>
-          <Text style={comingSoonStyles.badgeText}>
-            🚀  Launching Soon
-          </Text>
+          <Text style={comingSoonStyles.badgeText}>🚀  Launching Soon</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -49,13 +44,13 @@ const ChallengesComingSoon = () => {
 export default function ChallengesScreen() {
   const { points, refresh } = useRewards();
   const { user } = useAuth();
-  
+
   const IS_PRODUCTION = !__DEV__;
 
   if (IS_PRODUCTION) {
     return <ChallengesComingSoon />;
   }
-  
+
   // Refresh points when screen comes into focus
   useFocusEffect(
     useCallback(() => {
@@ -64,68 +59,64 @@ export default function ChallengesScreen() {
       }
     }, [user?.id, refresh])
   );
-  
+
   // Connect useCountdown to Daily Challenge endsAt
   const dailyCountdown = useCountdown(mockDailyChallenges[0].endsAt);
 
   const handleViewAllStandard = () => {
-    // TODO: Navigate to view all standard challenges page
     console.log('TODO: View All standard challenges pressed');
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* App Shell Header */}
+      {/* TopAppBar */}
       <TabHeader points={points ?? 0} />
-      
-      {/* Scrollable Body Content */}
-      <ScrollView 
+
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* 1. Daily Challenge Section */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Daily Challenge</Text>
-          <View style={styles.countdownBadge}>
-            <Text style={styles.countdownText}>
-              ENDS IN: {dailyCountdown.formatted}
-            </Text>
+        {/* ── Daily Challenge Hero ─────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Daily Challenge</Text>
+            <View style={styles.countdownPill}>
+              <Text style={styles.countdownText}>
+                ENDS IN: {dailyCountdown.formatted}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* 2. Daily Challenge Carousel */}
         <DailyChallengeCarousel data={mockDailyChallenges} />
 
-        {/* 3. Divvit Challenges Section Header */}
-        <View style={styles.sectionHeaderWrap}>
-          <SectionHeader 
-            title="Divvit Challenges"
-            subtitle="EARN MORE POINTS!"
-            onViewAllPress={handleViewAllStandard}
-          />
+        {/* ── Divvit Challenges ────────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Divvit Challenges</Text>
+            <Text style={styles.sectionSubtitle}>EARN MORE POINTS!</Text>
+          </View>
+          <Text style={styles.viewAllLink} onPress={handleViewAllStandard}>
+            View All
+          </Text>
         </View>
 
-        {/* 4. Standard Challenges List */}
-        <View style={styles.listContainer}>
-          {mockStandardChallenges.map((item, index) => (
-            <ChallengeRow 
-              key={item.id}
-              item={item}
-              pointsColor={index % 2 === 0 ? 'primary' : 'tertiary'}
-            />
+        <View style={styles.challengesList}>
+          {mockStandardChallenges.map((item) => (
+            <ChallengeRow key={item.id} item={item} />
           ))}
         </View>
 
-        {/* 5. Group Challenges Section */}
-        <View style={styles.sectionHeaderWrap}>
-          <SectionHeader title="Group Challenges" />
+        {/* ── Group Challenges ─────────────────────────── */}
+        <View style={styles.groupSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Group Challenges</Text>
+          </View>
+          <GroupChallengeCard data={mockGroupChallenges} />
         </View>
 
-        {/* 6. Group Challenge Carousel */}
-        <GroupChallengeCard data={mockGroupChallenges} />
-
-        {/* 7. Referral Card */}
-        <View style={styles.referralContainer}>
+        {/* ── Refer a Friend ──────────────────────────── */}
+        <View style={styles.referralWrap}>
           <ReferralCard />
         </View>
       </ScrollView>
@@ -133,58 +124,81 @@ export default function ChallengesScreen() {
   );
 }
 
+/* ── Styles ──────────────────────────────────────────── */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fcf4ff', // background color token
+    backgroundColor: '#fcf4ff', // surface / background
   },
   scrollContent: {
-    paddingTop: 12,
-    paddingBottom: 110, // clears bottom navigation bar
+    paddingTop: 8,
+    paddingBottom: 120,
   },
-  sectionContainer: {
+
+  /* Section header row */
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     paddingHorizontal: 24,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: 'Manrope_800ExtraBold',
     color: '#36274d', // on-surface
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
-  sectionHeaderWrap: {
-    paddingHorizontal: 24,
-    marginTop: 12,
+  sectionSubtitle: {
+    fontSize: 11,
+    fontFamily: 'Manrope_800ExtraBold',
+    color: '#806f9a', // outline
+    letterSpacing: 2.2,
+    marginTop: 4,
+    textTransform: 'uppercase',
   },
-  countdownBadge: {
-    backgroundColor: '#f1e3ff', // surface-container
+  viewAllLink: {
+    fontSize: 14,
+    fontFamily: 'Manrope_700Bold',
+    color: '#5f39dd', // primary
+  },
+
+  /* Countdown pill */
+  countdownPill: {
+    backgroundColor: '#ecdcff', // surface-container-high
     borderRadius: 9999,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
     alignSelf: 'flex-start',
-    marginTop: 6,
+    marginTop: 4,
   },
   countdownText: {
-    fontSize: 10,
-    fontFamily: 'Outfit_800ExtraBold',
+    fontSize: 11,
+    fontFamily: 'Manrope_800ExtraBold',
     color: '#806f9a', // outline
-    letterSpacing: 1.5,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
   },
-  listContainer: {
+
+  /* Lists */
+  challengesList: {
     paddingHorizontal: 24,
-    marginBottom: 16,
+    marginBottom: 8,
+    rowGap: 16,                           // 16px spacing between items
   },
-  referralContainer: {
+  groupSection: {
+    marginTop: 32,
+    marginBottom: 24,
+  },
+  referralWrap: {
     paddingHorizontal: 24,
-    marginTop: 12,
+    marginBottom: 48,
   },
 });
 
+/* ── Coming Soon placeholder ────────────────────────── */
 const comingSoonStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fcf4ff',
-  },
+  container: { flex: 1, backgroundColor: '#fcf4ff' },
   content: {
     flex: 1,
     alignItems: 'center',
@@ -202,9 +216,7 @@ const comingSoonStyles = StyleSheet.create({
     marginBottom: 24,
     opacity: 0.5,
   },
-  icon: {
-    fontSize: 44,
-  },
+  icon: { fontSize: 44 },
   title: {
     fontSize: 28,
     fontWeight: '800',

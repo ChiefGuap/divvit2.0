@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { View, FlatList, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
+import {
+  View,
+  FlatList,
+  Text,
+  StyleSheet,
+  Dimensions,
+  TouchableOpacity,
+} from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -15,82 +22,73 @@ interface GroupChallengeCardProps {
 export default function GroupChallengeCard({ data }: GroupChallengeCardProps) {
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const handlePressTeam = (id: string) => {
-    // Navigate to challenge details or group team placeholder
+  const handlePress = (id: string) => {
     router.push(`/challenge/${id}`);
   };
 
+  /* ── Rich-text description ─────────────────────── */
   const renderDescription = (desc: string) => {
     const pattern = /(\b\d+\s*(?:bonus\s+)?(?:pts|points|PTS)\b(?: each)?!?)/gi;
     const parts = desc.split(pattern);
     return (
       <Text style={styles.description}>
-        {parts.map((part, index) => {
-          if (/^\d+\s*(?:bonus\s+)?(?:pts|points|PTS)/i.test(part)) {
+        {parts.map((part, i) => {
+          if (/^\d+\s*(?:bonus\s+)?(?:pts|points|PTS)/i.test(part))
             return (
-              <Text key={index} style={styles.boldTertiary}>
+              <Text key={i} style={styles.ptsHighlight}>
                 {part}
               </Text>
             );
-          }
           return part;
         })}
       </Text>
     );
   };
 
-  const renderItem = ({ item }: { item: GroupChallenge }) => {
-    return (
-      <View style={styles.cardShadow}>
-        <Pressable 
-          onPress={() => handlePressTeam(item.id)}
-          style={({ pressed }) => [
-            styles.cardInner,
-            pressed && styles.pressedCard
-          ]}
-        >
-          {/* Banner Section with Centered Icon & Bottom Legibility Overlay */}
-          <View style={styles.bannerContainer}>
-            <MaterialIcons 
-              name="groups" 
-              size={72} 
-              color="rgba(155, 54, 100, 0.3)" 
-              style={styles.groupIcon}
-            />
+  /* ── Card renderer ─────────────────────────────── */
+  const renderItem = ({ item }: { item: GroupChallenge }) => (
+    <View style={styles.cardOuter}>
+      {/* Glow layer (outside the clipped container) */}
+      <View style={styles.glowLayer} />
 
+      {/* Clipped Card Container (forces rounded corners) */}
+      <View style={styles.cardClipContainer}>
+        <View style={styles.cardContent}>
+          {/* Banner */}
+          <View style={styles.banner}>
+            <MaterialIcons
+              name="groups"
+              size={60}
+              color="rgba(155, 54, 100, 0.30)"
+              style={styles.bannerIcon}
+            />
             <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.65)']}
-              style={styles.gradientOverlay}
+              colors={['transparent', 'rgba(0,0,0,0.60)']}
+              style={styles.bannerGradient}
             />
-            
-            {/* Overlaid Title */}
-            <Text style={styles.overlaidTitle}>{item.title}</Text>
+            <Text style={styles.bannerTitle}>{item.title}</Text>
           </View>
 
-          {/* Bottom Details Section */}
-          <View style={styles.detailsContainer}>
+          {/* Body */}
+          <View style={styles.body}>
             {renderDescription(item.description)}
-            
 
-
-            {/* Tertiary Action Button */}
-            <Pressable 
-              onPress={() => handlePressTeam(item.id)}
-              style={({ pressed }) => [
-                styles.tertiaryButton,
-                pressed && styles.buttonPressed
-              ]}
+            {/* CTA */}
+            <TouchableOpacity
+              onPress={() => handlePress(item.id)}
+              activeOpacity={0.85}
+              style={styles.ctaButton}
             >
-              <Text style={styles.buttonLabel}>VIEW TEAM</Text>
-            </Pressable>
+              <Text style={styles.ctaLabel}>VIEW TEAM</Text>
+            </TouchableOpacity>
           </View>
-        </Pressable>
+        </View>
       </View>
-    );
-  };
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.root}>
       <FlatList
         data={data}
         renderItem={renderItem}
@@ -100,176 +98,154 @@ export default function GroupChallengeCard({ data }: GroupChallengeCardProps) {
         snapToInterval={CARD_WIDTH + 16}
         snapToAlignment="center"
         decelerationRate="fast"
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles.listPad}
         onScroll={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + 16));
-          if (index >= 0 && index < data.length) {
-            setActiveIndex(index);
-          }
+          const idx = Math.round(
+            e.nativeEvent.contentOffset.x / (CARD_WIDTH + 16),
+          );
+          if (idx >= 0 && idx < data.length) setActiveIndex(idx);
         }}
       />
-      
-      {/* Dot Indicators */}
-      <View style={styles.dotsContainer}>
-        {[0, 1, 2].map((i) => {
-          const isActive = data.length > 1 ? activeIndex === i : i === 0;
-          return (
-            <View 
-              key={i} 
-              style={[
-                styles.dot, 
-                isActive ? styles.activeDot : styles.inactiveDot
-              ]} 
-            />
-          );
-        })}
+
+      {/* Dot indicators */}
+      <View style={styles.dots}>
+        {data.map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.dot,
+              i === activeIndex ? styles.dotActive : styles.dotInactive,
+            ]}
+          />
+        ))}
       </View>
     </View>
   );
 }
 
+/* ── Styles ──────────────────────────────────────── */
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 24,
+  root: {
+    marginBottom: 8,
   },
-  listContent: {
+  listPad: {
     paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
-  cardShadow: {
+
+  /* Card wrapper */
+  cardOuter: {
     width: CARD_WIDTH,
-    backgroundColor: '#ffffff', // surface-container-lowest
-    borderRadius: 24, // rounded-lg / xl matching the card style
     marginRight: 16,
-    // Signature Glow Shadow - more prominent
-    shadowColor: '#6346cd',
-    shadowOpacity: 0.22,
-    shadowRadius: 25,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 12,
+    position: 'relative',
   },
-  cardInner: {
+  glowLayer: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 48,
+    backgroundColor: 'transparent',
+    shadowColor: '#9b3664',
+    shadowOpacity: 0.10,
+    shadowRadius: 50,
+    shadowOffset: { width: 0, height: 20 },
+    elevation: 14,
+  },
+  cardClipContainer: {
     width: '100%',
-    borderRadius: 24,
-    overflow: 'hidden',
+    borderRadius: 48,
+    overflow: 'hidden',                  // Clip children to round shape
     backgroundColor: '#ffffff',
   },
-  pressedCard: {
-    opacity: 0.95,
+  cardContent: {
+    width: '100%',
   },
-  bannerContainer: {
+
+  /* Banner */
+  banner: {
     height: 160,
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(155, 54, 100, 0.08)', // light pink/purple tint matching tertiary-dim/10
+    backgroundColor: 'rgba(140, 41, 88, 0.10)', // tertiary-dim/10
+    borderTopLeftRadius: 48,
+    borderTopRightRadius: 48,
   },
-  gradientBg: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  groupIcon: {
+  bannerIcon: {
     position: 'absolute',
   },
-  gradientOverlay: {
+  bannerGradient: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     height: 80,
   },
-  overlaidTitle: {
+  bannerTitle: {
     position: 'absolute',
     bottom: 16,
-    left: 20,
+    left: 24,
+    right: 24,
     color: '#ffffff',
     fontSize: 24,
-    fontFamily: 'Outfit_800ExtraBold',
+    fontFamily: 'Manrope_800ExtraBold',
     letterSpacing: -0.5,
   },
-  detailsContainer: {
-    padding: 20,
-    alignItems: 'stretch',
+
+  /* Body */
+  body: {
+    padding: 16,
+    borderBottomLeftRadius: 48,
+    borderBottomRightRadius: 48,
+    backgroundColor: '#ffffff',
   },
   description: {
-    fontSize: 14,
-    color: '#64547d', // on-surface-variant
-    textAlign: 'left',
-    lineHeight: 22,
-    marginBottom: 20,
+    fontSize: 16,
+    color: '#64547d',
     fontFamily: 'Manrope_500Medium',
+    lineHeight: 26,
+    marginBottom: 24,
   },
-  boldTertiary: {
-    color: '#6346cd', // primary purple color token
-    fontFamily: 'Outfit_800ExtraBold',
-  },
-  progressContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-    paddingHorizontal: 4,
-  },
-  progressBarBg: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#ffeff2', // on-tertiary
-    marginRight: 12,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 3,
-    backgroundColor: '#9b3664', // tertiary
-  },
-  progressText: {
-    fontSize: 11,
+  ptsHighlight: {
+    color: '#9b3664', // tertiary
     fontFamily: 'Manrope_800ExtraBold',
-    color: '#9b3664',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
-  tertiaryButton: {
+  ctaButton: {
     width: '100%',
-    backgroundColor: '#9b3664', // tertiary color token
-    borderRadius: 12, // rounded-lg matching the HTML spec
+    backgroundColor: '#9b3664', // Inline absolute tertiary color
+    borderRadius: 32,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#9b3664',
-    shadowOpacity: 0.25,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
+    shadowOpacity: 0.20,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
-  buttonPressed: {
-    transform: [{ scale: 0.96 }],
-    opacity: 0.9,
-  },
-  buttonLabel: {
+  ctaLabel: {
     color: '#ffeff2', // on-tertiary
-    fontFamily: 'Outfit_800ExtraBold',
+    fontFamily: 'Manrope_800ExtraBold',
     fontSize: 12,
-    letterSpacing: 1.5,
+    letterSpacing: 3,
     textTransform: 'uppercase',
   },
-  dotsContainer: {
+
+  /* Dots */
+  dots: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 20,
+    gap: 8,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginHorizontal: 4,
   },
-  activeDot: {
+  dotActive: {
     backgroundColor: '#9b3664', // tertiary
   },
-  inactiveDot: {
-    backgroundColor: '#ffeff2', // on-tertiary
+  dotInactive: {
+    backgroundColor: '#b8a5d3', // outline-variant
   },
 });

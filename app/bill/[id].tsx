@@ -562,7 +562,7 @@ export default function BillEditorScreen() {
 
             await updateBillStatus(id, 'tip_selection');
             // Host navigates immediately; guests navigate via realtime subscription
-            router.push({
+            router.replace({
                 pathname: '/bill/tip' as any,
                 params: { billId: id, fromParty: 'true' },
             });
@@ -1032,7 +1032,7 @@ export default function BillEditorScreen() {
         if (validItems.length === 0) { Alert.alert('No Items', 'Please add at least one item before continuing.'); return; }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.push({
+        router.replace({
             pathname: '/bill/tip' as any,
             params: {
                 billId: id,
