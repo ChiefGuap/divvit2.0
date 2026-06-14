@@ -38,6 +38,8 @@ const ChallengesComingSoon = () => {
   );
 };
 
+const FALLBACK_DATE = new Date().toISOString();
+
 export default function ChallengesScreen() {
   const { points, refresh } = useRewards();
   const { user } = useAuth();
@@ -88,7 +90,7 @@ export default function ChallengesScreen() {
 
   // Connect useCountdown to Daily Challenge endsAt
   const dailyCountdown = useCountdown(
-    dailyChallenges[0]?.endsAt || new Date().toISOString()
+    dailyChallenges[0]?.endsAt || FALLBACK_DATE
   );
 
   const handleViewAllStandard = () => {

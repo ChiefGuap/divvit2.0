@@ -14,6 +14,8 @@ import HowItWorksStep from '../../components/challenges/HowItWorksStep';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+const FALLBACK_DATE = new Date().toISOString();
+
 export default function ChallengeDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
@@ -70,7 +72,7 @@ export default function ChallengeDetailsScreen() {
   };
 
   // Dynamic ticking countdown
-  const countdown = useCountdown(challenge?.endsAt || new Date().toISOString());
+  const countdown = useCountdown(challenge?.endsAt || FALLBACK_DATE);
 
   if (isLoading) {
     return (
